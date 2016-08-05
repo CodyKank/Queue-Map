@@ -1,0 +1,43 @@
+   _____ _____   _____    ____                          __  __                ___   ____  
+  / ____|  __ \ / ____|  / __ \                        |  \/  |              / _ \ |___ \ 
+ | |    | |__) | |      | |  | |_   _  ___ _   _  ___  | \  / | __ _ _ __   | | | |  __) |
+ | |    |  _  /| |      | |  | | | | |/ _ \ | | |/ _ \ | |\/| |/ _` | '_ \  | | | | |__ < 
+ | |____| | \ \| |____  | |__| | |_| |  __/ |_| |  __/ | |  | | (_| | |_) | | |_| | ___) |
+  \_____|_|  \_\\_____|  \___\_\\__,_|\___|\__,_|\___| |_|  |_|\__,_| .__/   \___(_)____/ 
+                                                                    | |                   
+                                                                    |_|     
+--------------------------------------------------------------------------------------------
+
+* The CRC Queue map was started in early August, 2016 by intern Cody Kankel
+
+* It is visually based of of Dr. Thain's Condor Matrix map.
+
+* The map works by having a python script run as a daemon on the crcfe1 
+which gathers the needed information and dumps it to a file (index-long.html etc)
+then it sleeps for 2 minutes and repeats. Then, there must be a cron job -
+-(or something equilivent) to gather those files every  2 minutes preferrably.
+ Then those files must make their ways to the proper directories for the web
+server to display them properly. 
+
+* The idea is to have the webserver setup to have the pages loaded by php to display
+as html, as to have a 'dynamic' website.
+
+* NOTE: the python daemon on the front end is python 3.4.0 FYI.
+
+* Installation:
+            There is a script which (in theory) will set up the necesarry
+            files for you on your webserver. It is assumed you already have
+            apache and php installed and running, if need be Google that and
+            you'll have your answers on how to do that.
+            Once the necesarry files are in place on server side, you then must
+            start the daemon on the front end. Once that daemon is running
+            view it through your localhost on a web browser and ensure all is
+            well. 
+
+* Issues: Problems with script: seek Cody Kankel - ckankel@nd.edu
+          Problems with setting up: seek Cody Kankel - ckankel@nd.edu
+          Problems with apache/php: seek Google
+          Problems with a Queue or specific node: seek crc support -
+          crcsupport@listserv.nd.edu
+
+Version: 0.3 Alpha

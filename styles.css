@@ -1,0 +1,52 @@
+body {
+	background-color: black;
+}
+h1 {
+	color: white;
+}
+
+p {
+    color: white;
+    border: 5px solid black;
+}
+
+table {
+        border: 2px solid white;
+}
+
+th, td {
+        text-align: left;
+        color: white;
+}
+
+.box {
+        float: left;
+        width: 10px;
+        height: 10px;
+        margin: 5px;
+        border: 1px solid rgba(0, 0, 0, .2);
+}
+
+.green {
+        background: #1cee11;
+}
+
+.red {
+        background: #eb0000;
+}
+
+.blue {
+        background: #0014eb;
+}
+
+.core {
+        float: left;
+        width: 12px;
+        height: 12px;
+        margin: 0px;
+        border: 1px solid rgba(0, 0, 0, .5);
+}
+
+.info {
+        color: white;
+}
