@@ -1,43 +1,83 @@
-   _____ _____   _____    ____                          __  __                ___   ____  
-  / ____|  __ \ / ____|  / __ \                        |  \/  |              / _ \ |___ \ 
- | |    | |__) | |      | |  | |_   _  ___ _   _  ___  | \  / | __ _ _ __   | | | |  __) |
- | |    |  _  /| |      | |  | | | | |/ _ \ | | |/ _ \ | |\/| |/ _` | '_ \  | | | | |__ < 
- | |____| | \ \| |____  | |__| | |_| |  __/ |_| |  __/ | |  | | (_| | |_) | | |_| | ___) |
-  \_____|_|  \_\\_____|  \___\_\\__,_|\___|\__,_|\___| |_|  |_|\__,_| .__/   \___(_)____/ 
+   _____ _____   _____    ____                          __  __                ___  ______ 
+  / ____|  __ \ / ____|  / __ \                        |  \/  |              / _ \|____  |
+ | |    | |__) | |      | |  | |_   _  ___ _   _  ___  | \  / | __ _ _ __   | | | |   / / 
+ | |    |  _  /| |      | |  | | | | |/ _ \ | | |/ _ \ | |\/| |/ _` | '_ \  | | | |  / /  
+ | |____| | \ \| |____  | |__| | |_| |  __/ |_| |  __/ | |  | | (_| | |_) | | |_| | / /   
+  \_____|_|  \_\\_____|  \___\_\\__,_|\___|\__,_|\___| |_|  |_|\__,_| .__/   \___(_)_/    
                                                                     | |                   
-                                                                    |_|     
+                                                                    |_|                   
 --------------------------------------------------------------------------------------------
 
 * The CRC Queue map was started in early August, 2016 by intern Cody Kankel
 
-* It is visually based of of Dr. Thain's Condor Matrix map.
+* It was inspired by Dr. Thain's Condor Matrix map.
 
-* The map works by having a python script run as a daemon on the crcfe1 
-which gathers the needed information and dumps it to a file (index-long.html etc)
-then it sleeps for 2 minutes and repeats. Then, there must be a cron job -
--(or something equilivent) to gather those files every  2 minutes preferrably.
- Then those files must make their ways to the proper directories for the web
-server to display them properly. 
-
-* The idea is to have the webserver setup to have the pages loaded by php to display
-as html, as to have a 'dynamic' website.
+* How it works:
+    This small program is a collection of little pieces. The heart of the program is a
+    python 3 script which runs as a daemon on crcfe01.crc.nd.edu. This script collects
+    all of the needed info and creates 4 files: index-long.html, index-debug.html,
+    sub-debug.tar.gz, and sub-long.tar.gz. Those files are then collected by the
+    grab_queue_files.sh script. The bash script gathers the files, un-tars etc, and
+    moves them to the necesarry location for the web server. Its best to place that
+    bash script (grab_queue_files.sh) into crontab to run as a cronjob every 2 minutes
+    or so. This all assumes you already have a working installation of a web server.
+    It has been tested with apache2 and PHP 7.0. A working equivalent of those is 
+    required for this to work correctly.
 
 * NOTE: the python daemon on the front end is python 3.4.0 FYI.
 
 * Installation:
-            There is a script which (in theory) will set up the necesarry
-            files for you on your webserver. It is assumed you already have
-            apache and php installed and running, if need be Google that and
-            you'll have your answers on how to do that.
-            Once the necesarry files are in place on server side, you then must
-            start the daemon on the front end. Once that daemon is running
-            view it through your localhost on a web browser and ensure all is
-            well. 
+            Configuration is key for a smooth setup. There is a script located within
+            the Queue_map directory which will for the most part set everything up for
+            you. 
+                First you should place queue_mapd.py on the front end you plan on using.
+                Once its theres, you should run it with ./queue_mapd.py --setup.
+                This will create setup files the setup script is looking for.
+                
+                Next you should view the setup.sh script in your favorite editor (vim)
+                and enter in your information where it is specified. If you can think of
+                a better way to do it and you understand how its working, go ahead and go
+                your own way. Enter both your CRC and local info. To be safe, make sure
+                this script is only read-able by yourself.
+                
+                Once its configured, run the setup script. This will create all dir's to
+                be used later on.
+                
+                If the script completed nicely, then configure the grab_queue_files.sh
+                script. Do the same as before, entering in info where it is specifed
+                into the script itself.
+                
+                Once configuring that is done, you can manually run the script to see
+                if everything is working. Just go to localhost in a browser to test it.
+                
+                If everything appears to be working, you should next make the
+                grab_queue_files.sh a cron job. Do this by typing: 'crontab -e' and 
+                going to the last line of the file under all of the comments. add the line
+                '*/2 * * * * PATH-TO-DIR/Queue_map/grab_queue_files.sh'
+                This will run the grabbing script every two minutes, which will automatically
+                keep your info up to date. 
+                
 
-* Issues: Problems with script: seek Cody Kankel - ckankel@nd.edu
-          Problems with setting up: seek Cody Kankel - ckankel@nd.edu
-          Problems with apache/php: seek Google
-          Problems with a Queue or specific node: seek crc support -
-          crcsupport@listserv.nd.edu
+* This has been tested on the latest versions of Firefox and Opera. Its unknown to me
+  how this will perform on other browsers. I'd love to hear from someone who has tried
+  it on something else (safari, chrome, IE[gross], Edge, etc).
 
-Version: 0.3 Alpha
+
+* Known Bugs:
+            On a page for an individual node, the table looks ugly and the cores
+            are not centered. Looking into fixing this.
+            Not Quite a bug, but look out for the grab_files script after system change,
+            it currently looks for d6copt so that will change eventually.
+            Then break, of course.
+
+* To-do:
+            Add links on the individual node pages to the Long and Debug Queues.
+            Possibly add an index page to lead to the Debug/Long pages??
+
+* Issues:   Problems with script: seek Cody Kankel - ckankel@nd.edu
+            Problems with setting up: seek Cody Kankel - ckankel@nd.edu
+            Problems with apache/php: seek Google
+            Problems with a Queue or specific node: seek crc support -
+            crcsupport@listserv.nd.edu
+
+Version: 0.7 Beta

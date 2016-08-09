@@ -10,14 +10,33 @@ p {
     border: 5px solid black;
 }
 
-table {
+table, td, th {
         border: 2px solid white;
+        text-align: center;
 }
 
+table {
+        border-collapse: collapse;
+}
+
+.big {
+        height: 30px;
+        width: 100%;
+        border: 2px solid white;
+        text-align: center;
+        padding: 40px;
+}
+
+
 th, td {
-        text-align: left;
+        color: white;
+        padding: 4px;
+}
+
+.text {
         color: white;
 }
+
 
 .box {
         float: left;
@@ -45,6 +64,15 @@ th, td {
         height: 12px;
         margin: 0px;
         border: 1px solid rgba(0, 0, 0, .5);
+        text-align: center;
+}
+
+.big_core {
+        width: 25px;
+        float: left;
+        height: 25px;
+        margin: 0px;
+        border: 2px solid black;
 }
 
 .info {
