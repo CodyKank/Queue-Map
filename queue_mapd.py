@@ -240,14 +240,16 @@ def main():
             setup_main()
     
     while True:
-        
+        qstat = subprocess.getoutput('qstat -f')
+            
         node_list = []
-        process_host(node_list, 'Long', True)
+        process_host(node_list, qstat, 'Long', True)
         tar_node_files(node_list, 'Long')
         node_list.clear()
-        process_host(node_list, 'Debug', True)
+        process_host(node_list, qstat, 'Debug', True)
         tar_node_files(node_list, 'Debug')
         node_list.clear()
+        process_pending_jobs(qstat.split('#'.center(79, '#'))[2].split('\n'))
         time.sleep(140)
     sys.exit() #Fail safe incase pigs fly and True is not true ;)
 #^--------------------------------------------------------- main()
@@ -261,11 +263,9 @@ def setup_main():
     sys.exit()
 #^--------------------------------------------------------- setup_main()
     
-def process_host(node_list, queue_name, html_switch):
+def process_host(node_list, qstat, queue_name, html_switch):
     """Modified method form sge_check.py to gather host information."""
-    
-    qstat = subprocess.getoutput('qstat -f')
-    
+        
     if queue_name == 'Long':
         desired_host_list = (subprocess.getoutput("qconf -shgrp_resolved " + '@general_access')).split()
         host_info_list = []
@@ -391,7 +391,6 @@ def process_nodes(node_list, qstat):
                 job.set_id(temp[0])
                 node.add_job(job)
     create_node_html(node_list)
-    process_pending_jobs(qstat.split('#'.center(79, '#'))[2].split('\n'))
     return
 #^--------------------------------------------------------- process_nodes(node_list, qstat)
 
@@ -401,6 +400,8 @@ def process_pending_jobs(pend_list):
     
     pending_job_list = []
     for job in pend_list:
+        if job == '':
+            continue
         temp = job.split()
         #Splitting qstat-section of job creates easy way to parse the job-details!
         pend_job = Pending(temp[2], temp[3], temp[7])
@@ -421,7 +422,7 @@ def create_pending_html(pending_job_list):
     
     for job in pending_job_list:
         pending_content += '<tr>' + '\n' + '<td>{0}>/td'.format(job.get_name()) + '\n' + '<td>{0}</td>'.format(job.get_priority()) + '\n' \
-        + '<td>{0}</td>'.format(job.get_user()) + '\n' + '<td>{0}</td>'.format(job.getcore_info()) + '\n' + '<td>{0}</td>'.format(job.get_date())\
+        + '<td>{0}</td>'.format(job.get_user()) + '\n' + '<td>{0}</td>'.format(job.get_core_info()) + '\n' + '<td>{0}</td>'.format(job.get_date())\
         + '\n' + '</tr>' + '\n'
         
     pending_content += '</table>' + '\n'
