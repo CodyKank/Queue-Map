@@ -57,6 +57,9 @@
                 This will run the grabbing script every two minutes, which will automatically
                 keep your info up to date. 
                 
+                Besides Apache, PHP, you must have 'ssh-pass' installed on your webserver
+                in order for this to work correctly. Debian/Ubuntu users can:
+                'sudo apt-get install ssh-pass'. RPM users, I haven't tried it yet.
 
 * This has been tested on the latest versions of Firefox and Opera. Its unknown to me
   how this will perform on other browsers. I'd love to hear from someone who has tried

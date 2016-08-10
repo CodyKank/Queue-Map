@@ -21,11 +21,15 @@ sshpass -p "$pword" scp $usename@$dest:$afs_path/sub-debug.tar.gz $(pwd)/sub-deb
 
 sshpass -p "$pword" scp $usename@$dest:$afs_path/sub-long.tar.gz $(pwd)/sub-long.tar.gz
 
+sshpass -p "$pword" scp $usename@$dest:$afs_path/pending.html $(pwd)/pending_content.html
+
 #Moving the files once on the web-server to proper locations
 
 echo $pswd | sudo -S mv index-long.html $desired_path/Long/index-long.html
 
 echo $pswd | sudo -S mv index-debug.html $desired_path/Debug/index-debug.html
+
+echo $pswd | sudo -S mv pending_content.html $desired_path/Pending/pending_content.html
 
 #Setting up node files:
 

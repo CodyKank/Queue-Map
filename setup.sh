@@ -20,13 +20,17 @@ psword="LOCAL (WEBSERVER) SUDO PASSWORD"
 long_file="long_nodes.txt" #These can stay this way
 debug_file="debug_nodes.txt" # "
 
-echo "Creating Debug and Long directories in $desired_path . . ."
+#Creating dirs moving files to proper locations
+echo "Creating Debug, Long, and Pending directories in $desired_path . . ."
 
 echo $psword | sudo -S mkdir $desired_path/Debug
 echo $psword | sudo -S mkdir $desired_path/Long
+echo $psword | sudo -S mkdir $desired_path/Pending
 
+echo "Moving index's to their rightful places . . ."
 echo $psword | sudo -S cp index-long.php $desired_path/Long/index.php
 echo $psword | sudo -S cp index-debug.php $desired_path/Debug/index.php
+echo $psword | sudo -S cp index-pending.php $desired_path/Pending/index.php
 
 echo "Transferring templates to $desired_path . . ."
 echo $psword | sudo -S cp -r templates $desired_path/templates
@@ -48,12 +52,15 @@ do
 done < "$long_file"
 
 echo "Creating each node's dir at $desired_path/Debug . . ."
+
 #Debug-queue nodes
 while IFS= read -r line
 do
         echo $psword | sudo -S mkdir $desired_path/Debug/$line
         echo $psword | sudo -S cp sub-index.php $desired_path/Debug/$line/index.php
 done < "$debug_file"
+
+
 echo "-----------------------COMPLETE-----------------------"
 echo ""
 

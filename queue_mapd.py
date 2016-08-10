@@ -4,7 +4,10 @@ import sys, subprocess, time, tarfile
 """Python 3 script which will gather node information and create a partial html webpage
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
-header.html and footer.html for each: Debug and Long."""
+header.html and footer.html for each: Debug and Long. Latest update:
+Aug 9th, 2016 v0.9.beta-2
+Exit codes: 0 - Good
+            20 - Bad Pending Job status"""
 
 class Node:
     """Class to hold representation of a node for the CRC at Notre Dame
@@ -139,6 +142,7 @@ class Job:
         self.user = str(user)
         self.priority = 0
         self.id = 0
+        return
         
     def __repr__(self):
         return 'Job-{0}'.format(self.name)
@@ -153,6 +157,7 @@ class Job:
     def set_cores(self, cores):
         """Method to set the number of cores a job uses."""
         self.cores = cores
+        return
     
     def get_core_info(self):
         """Method to obtain core info on a user."""
@@ -164,6 +169,7 @@ class Job:
     
     def set_priority(self, pri):
         self.priority = pri
+        return
     
     def get_user(self):
         """Method to obtain the user behind the job itself."""
@@ -175,12 +181,42 @@ class Job:
     
     def set_id(self, job_id):
         self.id = job_id
+        return
 #^--------------------------------------------------------- class Job
 
+class Pending(Job):
+    """Class to represent a Pending job in the SGE pending job-list. Class is child of Job class."""
+    
+    def set_status(self, status):
+        """Method which sets the waiting status of the job. In qstat -f, hqw is error waiting, which will
+        become 'Error' here, and qw is simply waiting turn, which will be 'Waiting' here. """
+        if status == 'qw':
+            status = 'Waiting'
+        elif status == 'hqw':
+            status = 'Error-halt'
+        else:
+            sys.exit(20)
+        self.status = status
+        return
+        
+    def get_status(self):
+        """Method to obtain the waiting status of a pending job."""
+        return self.status
+    
+    def set_date(self, date):
+        """Method to set the date which the job entered the pending state."""
+        self.date = date
+        return
+    
+    def get_date(self):
+        """Method I wish was made a long time ago."""
+        return self.date
+#^--------------------------------------------------------- class Pending(Job)
 
 #If you change the names here, don't forget to change them in cron job script and php file on webserver!
 LONG_SAVE_FILE = 'index-long.html'
 DEBUG_SAVE_FILE = 'index-debug.html'
+PENDING_SAVE_FILE = 'pending.html'
 SUB_NODE_FILE = 'sub-index.html'
 LONG_SETUP_FILE = 'long_node_list.html'
 DEBUG_SETUP_FILE = 'debug_node_list.html'
@@ -188,7 +224,7 @@ DEBUG_SETUP_FILE = 'debug_node_list.html'
 def main():
     """Main will parse cmd args to see if you're setting up or actually running. If you do not specify a cmd arg
     the script will pretend its a daemon and run continuously. I suggest './sge-graph.py &' to run it indefinitly"""
-    global LONG_SAVE_FILE, DEBUG_SAVE_FILE, LONG_SAVE_FILE, DEBUG_SETUP_FILE
+    global LONG_SAVE_FILE, DEBUG_SAVE_FILE, LONG_SAVE_FILE, DEBUG_SETUP_FILE, PENDING_SAVE_FILE 
     
     if len(sys.argv) > 1:
         if len(sys.argv) > 2:
@@ -297,8 +333,7 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
         other_queue = 'Debug'
     else:
         other_queue = 'Long'
-    link_to_queue = '\n<table>' + '\n' + '<tr>\n<td>\n<a href="../{0}" title="{0} Queue">{0} Queue</a>\n'.format(other_queue) \
-                    + '</td>\n</tr>\n</table>\n'
+    link_to_queue = '\n<a href="../{0}" title="{0} Queue">{0} Queue</a>\n'.format(other_queue)
     
     open_core = "<a class=\"core green\" href='{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
     taken_core = "<a class=\"core blue\" href='{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
@@ -334,11 +369,12 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
 def process_nodes(node_list, qstat):
     """Method which goes through each node and gathers information from them to be made into
     html and displayed on the Queue 'heat' map."""
-    qstat = qstat.split('#'.center(79, '#'))[0] #[2] would be pending jobs!
+    qstat_nodes = qstat.split('#'.center(79, '#'))[0] #[2] would be pending jobs!
 
     for node in node_list:
-        node_info = (qstat[qstat.find(node.get_name()):].split('-'.center(81, '-')))[0]
+        node_info = (qstat_nodes[qstat_nodes.find(node.get_name()):].split('-'.center(81, '-')))[0]
         node.set_load(node_info.split()[3])
+        #because of qstat, there will always be an extra element, and the element of the name itself which is not a job!
         bad_node_info = node_info.split('\n')
         good_node_info =  []
         for element in bad_node_info:
@@ -355,15 +391,60 @@ def process_nodes(node_list, qstat):
                 job.set_id(temp[0])
                 node.add_job(job)
     create_node_html(node_list)
+    process_pending_jobs(qstat.split('#'.center(79, '#'))[2].split('\n'))
     return
 #^--------------------------------------------------------- process_nodes(node_list, qstat)
+
+def process_pending_jobs(pend_list):
+    """Method which takes in a string of the qstat-pending jobs, and processes that string to
+    be made into html for the pending-jobs page(v0.9-beta-2)."""
+    
+    pending_job_list = []
+    for job in pend_list:
+        temp = job.split()
+        #Splitting qstat-section of job creates easy way to parse the job-details!
+        pend_job = Pending(temp[2], temp[3], temp[7])
+        pend_job.set_priority(temp[1])
+        pend_job.set_status(temp[4])
+        pend_job.set_date(temp[5])
+        pending_job_list.append(pend_job)
+    del pend_list
+    create_pending_html(pending_job_list)
+    return
+    
+def create_pending_html(pending_job_list):
+    """Method to create the actual html for the pending job page. This does not include the header and footer which should
+    already be within the directory this html will be trying to go to. """
+    
+    pending_content = '\n' + '<table style="width:100%">' + '\n' + '<th>Job Name</th>' + '\n' + '<th>Priority</th>' + '\n' + '<th>User</th>' \
+    + '<th>Status</th>' + '\n' + '<th>Num Cores</th>' + '\n' + '<th>Date Submitted</th>' + '\n'
+    
+    for job in pending_job_list:
+        pending_content += '<tr>' + '\n' + '<td>{0}>/td'.format(job.get_name()) + '\n' + '<td>{0}</td>'.format(job.get_priority()) + '\n' \
+        + '<td>{0}</td>'.format(job.get_user()) + '\n' + '<td>{0}</td>'.format(job.getcore_info()) + '\n' + '<td>{0}</td>'.format(job.get_date())\
+        + '\n' + '</tr>' + '\n'
+        
+    pending_content += '</table>' + '\n'
+    write_pending(pending_content)
+    return
+#^--------------------------------------------------------- create_pending_html(pending_job_list)
+
+def write_pending(content):
+    """Method to write to a file the html for the pending job page"""
+    
+    file = open(PENDING_SAVE_FILE, 'w')
+    file.write(content)
+    file.close()
+    return
+#^--------------------------------------------------------- write_pending(content)
 
 def create_node_html(node_list):
     """Method to create the html for all individual nodes. To save time and headaches,
     all of the files created here will be tar-ed up and compressed, waiting to be gathered
     by the cronjob on the webserver."""
     
-    node_header = "<h1>{0}'s Status</h1>" #Need to .format(Node-name)
+    node_header = "<h1>{0}'s Status</h1>" + '\n' + '<a href="../../Debug">Debug Queue</a>' + '\n' \
+    + '<a href="../../Long">Long Queue</a>' #Need to .format(Node-name)
     
     for node in node_list:    
         if node.get_disabled_switch():
