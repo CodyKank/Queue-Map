@@ -10,7 +10,7 @@
 
 * The CRC Queue map was started in early August, 2016 by intern Cody Kankel
 
-* It was inspired by Dr. Thain's Condor Matrix map.
+* It is inspired by Dr. Thain's Condor Matrix map. http://condor.cse.nd.edu/condor_matrix.cgi
 
 * How it works:
     This small program is a collection of little pieces. The heart of the program is a
