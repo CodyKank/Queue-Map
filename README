@@ -74,7 +74,7 @@
             Then break, of course.
 
 * To-do:
-            Add links on the individual node pages to the Long and Debug Queues.
+          ~~Add links on the individual node pages to the Long and Debug Queues.~~
             Possibly add an index page to lead to the Debug/Long pages??
 
 * Issues:   Problems with script: seek Cody Kankel - ckankel@nd.edu
@@ -83,4 +83,4 @@
             Problems with a Queue or specific node: seek crc support -
             crcsupport@listserv.nd.edu
 
-Version: 0.7 Beta
+Version: 0.8-Beta-2
