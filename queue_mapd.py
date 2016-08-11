@@ -5,7 +5,7 @@ import sys, subprocess, time, tarfile
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
 header.html and footer.html for each: Debug and Long. Latest update:
-Aug 9th, 2016 v0.9.beta-2
+Aug 11th, 2016 v0.9.beta-2
 Exit codes: 0 - Good
             20 - Bad Pending Job status"""
 
@@ -193,7 +193,9 @@ class Pending(Job):
         if status == 'qw':
             status = 'Waiting'
         elif status == 'hqw':
-            status = 'Error-halt'
+            status = 'Held'
+        elif status == 'Eqw':
+            status = 'Error'
         else:
             sys.exit(20)
         self.status = status
@@ -213,7 +215,7 @@ class Pending(Job):
         return self.date
 #^--------------------------------------------------------- class Pending(Job)
 
-#If you change the names here, don't forget to change them in cron job script and php file on webserver!
+#If you change the names here, don't forget to change them in cron job script and php files on webserver!
 LONG_SAVE_FILE = 'index-long.html'
 DEBUG_SAVE_FILE = 'index-debug.html'
 PENDING_SAVE_FILE = 'pending.html'
@@ -224,7 +226,7 @@ DEBUG_SETUP_FILE = 'debug_node_list.html'
 def main():
     """Main will parse cmd args to see if you're setting up or actually running. If you do not specify a cmd arg
     the script will pretend its a daemon and run continuously. I suggest './sge-graph.py &' to run it indefinitly"""
-    global LONG_SAVE_FILE, DEBUG_SAVE_FILE, LONG_SAVE_FILE, DEBUG_SETUP_FILE, PENDING_SAVE_FILE 
+    global LONG_SAVE_FILE, DEBUG_SAVE_FILE, LONG_SETUP_FILE, DEBUG_SETUP_FILE, PENDING_SAVE_FILE 
     
     if len(sys.argv) > 1:
         if len(sys.argv) > 2:
@@ -256,10 +258,11 @@ def main():
 
 def setup_main():
     """Alternative main to script if the --setup flag is specified"""
+    qstat = subprocess.getoutput('qstat -f')
     node_list = []
-    process_host(node_list, 'Long', False)
+    process_host(node_list, qstat, 'Long', False)
     node_list.clear()
-    process_host(node_list, 'Debug', False)
+    process_host(node_list, qstat, 'Debug', False)
     sys.exit()
 #^--------------------------------------------------------- setup_main()
     
@@ -312,8 +315,7 @@ def process_host(node_list, qstat, queue_name, html_switch):
 #^--------------------------------------------------------- process_host(node_list)
   
 def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, disabled_cores, queue_name, qstat):
-    """Method to create the index page to fill in the php bundle for creating the webpage
-    for the 'heat-map' of the CRC Queues."""
+    """Method to create html for the Debug/Long Queues."""
     
     index_header = '<br>\n' + '<table style="width:25%">'.rjust(37) + '\n' + '<tr>'.rjust(24) + '\n' \
                    + '<th><center>Queue Name</center></th>'.rjust(45) + '\n' + '<th><center>Nodes</center></th>'.rjust(40) + '\n' \
@@ -333,7 +335,8 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
         other_queue = 'Debug'
     else:
         other_queue = 'Long'
-    link_to_queue = '\n<a href="../{0}" title="{0} Queue">{0} Queue</a>\n'.format(other_queue)
+    link_to_others = '\n<a href="../{0}" title="{0} Queue">{0} Queue</a>\n'.format(other_queue)
+    link_to_others += '<a href="../Pending" title="Go to Pending Jobs">Pending Jobs</a>\n'
     
     open_core = "<a class=\"core green\" href='{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
     taken_core = "<a class=\"core blue\" href='{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
@@ -356,11 +359,11 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
     index_table += '\n</td>\n</tr>\n</table>\n'
     date = subprocess.getoutput("date")
     index_table += '<div class="info"><p><center>Information current as of {0}</center></p></div>\n'.format(str(date))
-    write_index_html(index_header, index_legend, index_table, queue_name, link_to_queue)
+    write_index_html(index_header, index_legend, index_table, queue_name, link_to_others)
     del index_header
     del index_legend
     del index_table
-    del link_to_queue
+    del link_to_others
     
     process_nodes(node_list, qstat)
     return
@@ -412,18 +415,19 @@ def process_pending_jobs(pend_list):
     del pend_list
     create_pending_html(pending_job_list)
     return
+#^--------------------------------------------------------- process_pending_jobs(pend_list)  
     
 def create_pending_html(pending_job_list):
     """Method to create the actual html for the pending job page. This does not include the header and footer which should
     already be within the directory this html will be trying to go to. """
     
-    pending_content = '\n' + '<table style="width:100%">' + '\n' + '<th>Job Name</th>' + '\n' + '<th>Priority</th>' + '\n' + '<th>User</th>' \
+    pending_content = '\n' + '<table class="pending">' + '\n' + '<th>Job Name</th>' + '\n' + '<th>Priority</th>' + '\n' + '<th>User</th>' \
     + '<th>Status</th>' + '\n' + '<th>Num Cores</th>' + '\n' + '<th>Date Submitted</th>' + '\n'
     
     for job in pending_job_list:
-        pending_content += '<tr>' + '\n' + '<td>{0}>/td'.format(job.get_name()) + '\n' + '<td>{0}</td>'.format(job.get_priority()) + '\n' \
-        + '<td>{0}</td>'.format(job.get_user()) + '\n' + '<td>{0}</td>'.format(job.get_core_info()) + '\n' + '<td>{0}</td>'.format(job.get_date())\
-        + '\n' + '</tr>' + '\n'
+        pending_content += '<tr>' + '\n' + '<td>{0}</td>'.format(job.get_name()) + '\n' + '<td>{0}</td>'.format(job.get_priority()) + '\n' \
+        + '<td>{0}</td>'.format(job.get_user()) + '\n' + '<td>{0}</td>'.format(job.get_status()) + '\n' + '<td>{0}</td>'.format(job.get_core_info()) \
+        + '\n' + '<td>{0}</td>'.format(job.get_date()) + '\n' + '</tr>' + '\n'
         
     pending_content += '</table>' + '\n'
     write_pending(pending_content)
@@ -527,15 +531,15 @@ def write_node_html(name, header, table, jobs, n_map):
 #^--------------------------------------------------------- write_node_html(name, header, table)
 
 def write_index_html(header, legend, table, queue_name, link_to_queue):
-    """Method to write to a file the html code generated earlier"""
+    """Method to write to a file the html code generated for the Debug/Long Queues."""
     if queue_name == 'Long':    
         file = open(LONG_SAVE_FILE, 'w')
     else:
         file = open(DEBUG_SAVE_FILE, 'w')
         
+    file.write(link_to_queue)
     file.write(header)
     file.write(legend)
-    file.write(link_to_queue)
     file.write(table)
     file.close()
     return

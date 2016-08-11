@@ -5,6 +5,10 @@ h1 {
 	color: white;
 }
 
+h2 {
+    color: white;
+}
+
 p {
     color: white;
     border: 5px solid black;
@@ -77,4 +81,23 @@ th, td {
 
 .info {
         color: white;
+        margin-left: auto;
+        margin-right: auto;
 }
+
+table.pending {
+        width: 100%
+}
+
+table.pending th, td {
+        color: white;
+        padding: 5px;
+        text-align: center;
+}
+
+
+table.pending tr {
+        color: white;
+        background: #878787;
+}
+
