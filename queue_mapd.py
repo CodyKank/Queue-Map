@@ -5,7 +5,7 @@ import sys, subprocess, time, tarfile
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
 header.html and footer.html for each: Debug and Long. Latest update:
-Aug 11th, 2016 v0.9.beta-2
+Aug 12th, 2016 v0.8.beta-2.1
 Exit codes: 0 - Good
             20 - Bad Pending Job status"""
 
@@ -483,9 +483,15 @@ def create_node_html(node_list):
         taken_core = "<a class=\"big_core blue\" href='#' title=\"Used Core\"></a>\n"
         disabled_node= "<a class=\"big_core red\" href='#' title=\"Node Disabled\"></a>\n"
         
-        node_map = '\n<br><table class="big">'.rjust(38) + '\n' + '<tr>\n<td>'
+        #Will need to change after upgrade, or if using for different machines!!!!!!!!!!!!!
+        if int(node.get_total()) == 12:
+            div_class = 'longer_node_cores'
+        else:
+            div_class = 'shorter_node_cores'
+        node_map = '\n<br><div class="{0}">'.format(div_class).rjust(38) + '\n' + '<center>'
         
         if node.get_disabled_switch():
+            #Remember, the latter digit is non-inclusive in Python! (so add 1 to it)
             for i in range(1, node.get_total() + 1):    
                 node_map += disabled_node
         else:    
@@ -493,7 +499,7 @@ def create_node_html(node_list):
                 node_map += taken_core
             for j in range(1, node.get_free() +1):
                 node_map += open_core
-        node_map += '\n</td>\n</tr>\n</table>\n'
+        node_map += '</center>\n</div>\n'
         
         date = subprocess.getoutput("date")
         node_map += '<div class="info"><p><center>Information current as of {0}</center></p></div>\n'.format(str(date))    

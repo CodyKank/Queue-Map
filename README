@@ -61,21 +61,19 @@
                 in order for this to work correctly. Debian/Ubuntu users can:
                 'sudo apt-get install ssh-pass'. RPM users, I haven't tried it yet.
 
-* This has been tested on the latest versions of Firefox and Opera. Its unknown to me
+* This has been tested on the latest versions of Firefox, Vivaldi, and Opera. Its unknown to me
   how this will perform on other browsers. I'd love to hear from someone who has tried
   it on something else (safari, chrome, IE[gross], Edge, etc).
 
 
 * Known Bugs:
-            On a page for an individual node, the table looks ugly and the cores
-            are not centered. Looking into fixing this.
             Not Quite a bug, but look out for the grab_files script after system change,
             it currently looks for d6copt so that will change eventually.
             Then break, of course.
 
 * To-do:
-          ~~Add links on the individual node pages to the Long and Debug Queues.~~
             Possibly add an index page to lead to the Debug/Long pages??
+            Make the Pending Jobs table look nicer.
 
 * Issues:   Problems with script: seek Cody Kankel - ckankel@nd.edu
             Problems with setting up: seek Cody Kankel - ckankel@nd.edu
@@ -83,4 +81,4 @@
             Problems with a Queue or specific node: seek crc support -
             crcsupport@listserv.nd.edu
 
-Version: 0.8-Beta-2
+Version: 0.8-Beta-2.1

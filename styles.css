@@ -72,11 +72,11 @@ th, td {
 }
 
 .big_core {
-        width: 25px;
-        float: left;
-        height: 25px;
-        margin: 0px;
+        width: 35px;
+        height: 35px;
+        display: inline-block;
         border: 2px solid black;
+        padding: 2px;
 }
 
 .info {
@@ -86,18 +86,35 @@ th, td {
 }
 
 table.pending {
-        width: 100%
+        width: 100%;
+        border-collapse: collapse;
 }
 
 table.pending th, td {
-        color: white;
         padding: 5px;
         text-align: center;
+        border-bottom: 1px solid #0A0A0A;
 }
 
 
 table.pending tr {
-        color: white;
         background: #878787;
 }
 
+.longer_node_cores {
+        background-color: black;
+        width: 570px;
+        border: 2px solid grey;
+        padding: 2px;
+        margin-left: auto;
+        margin-right: auto;
+}
+
+.shorter_node_cores {
+        background-color: black;
+        width: 390px;
+        border: 2px solid grey;
+        padding: 2px;
+        margin-left: auto;
+        margin-right: auto;
+}
