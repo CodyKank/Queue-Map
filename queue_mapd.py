@@ -5,7 +5,7 @@ import sys, subprocess, time, tarfile
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
 header.html and footer.html for each: Debug and Long. Latest update:
-Aug 12th, 2016 v0.8.beta-2.1
+Aug 17th, 2016 v0.8.1-beta-3
 Exit codes: 0 - Good
             20 - Bad Pending Job status"""
 
@@ -197,7 +197,8 @@ class Pending(Job):
         elif status == 'Eqw':
             status = 'Error'
         else:
-            sys.exit(20)
+            #sys.exit(20)
+            write_log(status, 20)
         self.status = status
         return
         
@@ -216,6 +217,8 @@ class Pending(Job):
 #^--------------------------------------------------------- class Pending(Job)
 
 #If you change the names here, don't forget to change them in cron job script and php files on webserver!
+#If you are using a curl method of obtaining files, then make sure you change path to your www dir etc!
+#(as in afs/crc.nd.edu/user/j/jdoe/www/index-long.html)
 LONG_SAVE_FILE = 'index-long.html'
 DEBUG_SAVE_FILE = 'index-debug.html'
 PENDING_SAVE_FILE = 'pending.html'
@@ -512,9 +515,9 @@ def tar_node_files(node_list, Queue):
     why this script should be running in its own directory."""
     
     if Queue == 'Long':
-        save_name = 'sub-long.tar.gz'
+        save_name = '/afs/crc.nd.edu/user/c/ckankel/www/sub-long.tar.gz'
     else:
-        save_name = 'sub-debug.tar.gz'
+        save_name = '/afs/crc.nd.edu/user/c/ckankel/www/sub-debug.tar.gz'
         
     tar = tarfile.open(save_name, 'w:gz')
     for node in node_list:
@@ -564,6 +567,21 @@ def write_setup_files(node_list, queue_name):
         file.write('\n')
     return
 #^--------------------------------------------------------- write_setup_files(node_list)
+
+def write_log(info, code):
+    """Method to write to a log if an error occurs and the program dies."""
+    log_name = 'queue_mapd.log'
+    file = open(log_name, 'a')
+    date = subprocess.getoutput('date')
+    
+    if int(code) == 20:
+        content = 'I am {0}, and have died because of bad pending job status, with {1} as the attempted status on {2}'.format(sys.argv[0], status, date)
+    else:
+        content = 'I am {0}, but I do not know how I got to the point of writing a log...'.format(sys.argv[0])
+    
+    file.write(content)
+    sys.exit(code)
+#^--------------------------------------------------------- write_log(info, code)
 
 def show_usage():
     """Method to display how to use this script on stdout"""

@@ -9,11 +9,7 @@
 desired_path="/var/www/html" #you can change this if need be
 
 #CRC info to gather files
-usename="CRCUSERNAME HERE!"
-dest="crcfe01.crc.nd.edu"
-pword="CRC-PASSWORD HERE"
-path_to_long_file="ABSOLUTE PATH TO long_node_list.html"
-path_to_debug_file="ABSOLUTE PATH TO debug_node_list.html"
+webpage_url="URL FOR CRC FILES HERE"
 
 #Local info to mv files to protected areas
 psword="LOCAL (WEBSERVER) SUDO PASSWORD"
@@ -38,9 +34,9 @@ echo $psword | sudo -S cp -r templates $desired_path/templates
 echo "Transferring styles.css to $desired_path . . ."
 echo $psword | sudo -S cp styles.css $desired_path/
 
-echo "Gathering node-list files from $dest as $usename . . ."
-sshpass -p "$pword" scp $usename@$dest:$path_to_long_file $(pwd)/$long_file
-sshpass -p "$pword" scp $usename@$dest:$path_to_debug_file $(pwd)/$debug_file
+echo "Gathering node-list files from $webpage_url . . ."
+curl -o debug_nodes.txt $webpage_url/debug_node_list.html
+curl -o long_nodes.txt $webpage_url/long_node_list.html
 
 # Creating and initialiizing each node's dir etc
 #Long-queue nodes
@@ -74,7 +70,7 @@ echo "out at."
 echo ""
 echo "Once you know things are where they should be, make sure you configured the"
 echo "grab_queue_files.sh script for your info to grab the files."
-echo "If it is configured already, add this line to crontab -e:"
+echo "If it is configured already, either of the two lines to crontab -e:"
 echo "If you chose method(1) as described in README, add this to cron:"
 echo "*/2 * * * * $(pwd)/grab_queue_files.sh"
 echo ""

@@ -32,33 +32,55 @@
             you. 
                 First you should place queue_mapd.py on the front end you plan on using.
                 Once its theres, you should run it with ./queue_mapd.py --setup.
-                This will create setup files the setup script is looking for.
+                This will create setup files the setup script is looking for which contain
+                the nodes the queue's currently have in plain text. The setup script uses
+                those files to create the dir's for each of the nodes.
                 
+                As of beta-3, there are now two ways you could have this run. Either: 
+                (1) Hard-code your password into a script which gathers necesarry files
+                from the front-end by using sshpass and scp. The setup script for this 
+                method also uses sshpass and scp. Or (2) Have the daemon write the necesarry
+                files to a location which is accessible from the web by way of curl; i.e. 
+                /foo/bar/www/index-long.html etc. The setup script for this method also 
+                relies on curl and the use of some form of web access.
+
+                Method (1) :
+                ------------------------------------------------------------------------
                 Next you should view the setup.sh script in your favorite editor (vim)
                 and enter in your information where it is specified. If you can think of
                 a better way to do it and you understand how its working, go ahead and go
                 your own way. Enter both your CRC and local info. To be safe, make sure
                 this script is only read-able by yourself.
+
+                Once the setup script.sh script is configured, you should configure the 
+                grab_queue_files.sh script the same way you configured the setup script.
                 
                 Once its configured, run the setup script. This will create all dir's to
                 be used later on.
                 
-                If the script completed nicely, then configure the grab_queue_files.sh
-                script. Do the same as before, entering in info where it is specifed
-                into the script itself.
+                Method (2):
+                ------------------------------------------------------------------------
+                View the curl_setup.sh script in your favorite text editor and enter in
+                any information which is required such as paths of files. If you do not
+                want to code in your server password, you can change the sudoers file to
+                allow whatever user your cronning this job as to run all of the commands
+                without needed a sudo password.
+
+                Now that the curl_setup.sh is configured, you should do the same with the
+                curl_queue_files.sh file. This is the script which will indefinetely grab
+                the html files for use in your webpages.
                 
-                Once configuring that is done, you can manually run the script to see
-                if everything is working. Just go to localhost in a browser to test it.
-                
-                If everything appears to be working, you should next make the
-                grab_queue_files.sh a cron job. Do this by typing: 'crontab -e' and 
-                going to the last line of the file under all of the comments. add the line
-                '*/2 * * * * PATH-TO-DIR/Queue_map/grab_queue_files.sh'
+                Both Methods:
+                -----------------------------------------------------------------------
+                If everything appears to be working, you should next make the non-setup
+                file you configured ealier into a  a cron job. Do this by typing: 'crontab -e'
+                and going to the last line of the file under all of the comments. add the line
+                '*/2 * * * * PATH-TO-DIR/Queue_map/(preferred)_queue_files.sh)'
                 This will run the grabbing script every two minutes, which will automatically
                 keep your info up to date. 
                 
-                Besides Apache, PHP, you must have 'ssh-pass' installed on your webserver
-                in order for this to work correctly. Debian/Ubuntu users can:
+                Besides Apache, PHP, if you chose Method(1) you must have 'ssh-pass' installed 
+                on your webserver in order for this to work correctly. Debian/Ubuntu users can:
                 'sudo apt-get install ssh-pass'. RPM users, I haven't tried it yet.
 
 * This has been tested on the latest versions of Firefox, Vivaldi, and Opera. Its unknown to me
@@ -81,4 +103,4 @@
             Problems with a Queue or specific node: seek crc support -
             crcsupport@listserv.nd.edu
 
-Version: 0.8-Beta-2.1
+Version: 0.8-Beta-3
