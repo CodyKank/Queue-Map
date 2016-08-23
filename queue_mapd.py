@@ -218,12 +218,12 @@ class Pending(Job):
 #If you change the names here, don't forget to change them in cron job script and php files on webserver!
 #If you are using a curl method of obtaining files, then make sure you change path to your www dir etc!
 #(as in afs/crc.nd.edu/user/j/jdoe/www/index-long.html)
-LONG_SAVE_FILE = ''
-DEBUG_SAVE_FILE = ''
-PENDING_SAVE_FILE = ''
-SUB_NODE_FILE = ''
-LONG_SETUP_FILE = ''
-DEBUG_SETUP_FILE = ''
+LONG_SAVE_FILE = 'index-long.html'
+DEBUG_SAVE_FILE = 'index-debug.html'
+PENDING_SAVE_FILE = 'pending.html'
+SUB_NODE_FILE = 'sub-index.html'
+LONG_SETUP_FILE = 'long_node_list.html'
+DEBUG_SETUP_FILE = 'debug_node_list.html'
 
 def main():
     """Main will parse cmd args to see if you're setting up or actually running. If you do not specify a cmd arg
@@ -317,11 +317,15 @@ def process_host(node_list, qstat, queue_name, html_switch):
 #^--------------------------------------------------------- process_host(node_list)
   
 def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, disabled_cores, queue_name, qstat):
-    """Method to create html for the Debug/Long Queues."""
+    """Method to create html for the Debug/General Access Queues."""
+    if queue_name == 'Long':
+        queue = 'General Access'
+    else:
+        queue = 'Debug'
     
     index_header = '<br>\n' + '<table style="width:25%">'.rjust(37) + '\n' + '<tr>'.rjust(24) + '\n' \
                    + '<th><center>Queue Name</center></th>'.rjust(45) + '\n' + '<th><center>Nodes</center></th>'.rjust(40) + '\n' \
-                   + '</tr>'.rjust(25) + '\n' + '<tr>'.rjust(24) + '\n' +  '<td>{0}</td>'.format(queue_name + ' Queue').rjust(47) + '\n' \
+                   + '</tr>'.rjust(25) + '\n' + '<tr>'.rjust(24) + '\n' +  '<td>{0}</td>'.format(queue + ' Queue').rjust(47) + '\n' \
     + '<td>{0}</td>\n'.format(total_nodes).rjust(40) + '</tr>'.rjust(25) + '\n' + '</table>'.rjust(20) + '\n'
 
     index_legend = '<table style="width:25%">'.rjust(37) + '\n' + '<tr>'.rjust(24) + '\n' \
