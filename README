@@ -30,8 +30,10 @@
             Configuration is key for a smooth setup. There is a script located within
             the Queue_map directory which will for the most part set everything up for
             you. 
-                First you should place queue_mapd.py on the front end you plan on using.
-                Once its theres, you should run it with ./queue_mapd.py --setup.
+                First you should view queue_mapd.py in a text editor and specify the paths
+                for the indicated files, which are global variables so you'll see them 
+                after the class definitions. Then place queue_mapd.py on the front end you 
+                plan on using. Once its theres, you should run it with ./queue_mapd.py --setup.
                 This will create setup files the setup script is looking for which contain
                 the nodes the queue's currently have in plain text. The setup script uses
                 those files to create the dir's for each of the nodes.

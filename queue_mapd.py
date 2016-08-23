@@ -5,7 +5,7 @@ import sys, subprocess, time, tarfile
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
 header.html and footer.html for each: Debug and Long. Latest update:
-Aug 17th, 2016 v0.8.1-beta-3
+Aug 23rd, 2016 v0.8.1-beta-3
 Exit codes: 0 - Good
             20 - Bad Pending Job status"""
 
@@ -197,7 +197,6 @@ class Pending(Job):
         elif status == 'Eqw':
             status = 'Error'
         else:
-            #sys.exit(20)
             write_log(status, 20)
         self.status = status
         return
@@ -219,12 +218,12 @@ class Pending(Job):
 #If you change the names here, don't forget to change them in cron job script and php files on webserver!
 #If you are using a curl method of obtaining files, then make sure you change path to your www dir etc!
 #(as in afs/crc.nd.edu/user/j/jdoe/www/index-long.html)
-LONG_SAVE_FILE = 'index-long.html'
-DEBUG_SAVE_FILE = 'index-debug.html'
-PENDING_SAVE_FILE = 'pending.html'
-SUB_NODE_FILE = 'sub-index.html'
-LONG_SETUP_FILE = 'long_node_list.html'
-DEBUG_SETUP_FILE = 'debug_node_list.html'
+LONG_SAVE_FILE = ''
+DEBUG_SAVE_FILE = ''
+PENDING_SAVE_FILE = ''
+SUB_NODE_FILE = ''
+LONG_SETUP_FILE = ''
+DEBUG_SETUP_FILE = ''
 
 def main():
     """Main will parse cmd args to see if you're setting up or actually running. If you do not specify a cmd arg
@@ -575,7 +574,7 @@ def write_log(info, code):
     date = subprocess.getoutput('date')
     
     if int(code) == 20:
-        content = 'I am {0}, and have died because of bad pending job status, with {1} as the attempted status on {2}'.format(sys.argv[0], status, date)
+        content = 'I am {0}, and have died because of bad pending job status, with {1} as the attempted status on {2}'.format(sys.argv[0], info, date)
     else:
         content = 'I am {0}, but I do not know how I got to the point of writing a log...'.format(sys.argv[0])
     
