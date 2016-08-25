@@ -5,7 +5,7 @@ import sys, subprocess, time, tarfile
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
 header.html and footer.html for each: Debug and Long. Latest update:
-Aug 23rd, 2016 v0.8.1-beta-3
+Aug 25th, 2016 v0.8.3-beta
 Exit codes: 0 - Good
             20 - Bad Pending Job status"""
 
@@ -196,10 +196,26 @@ class Pending(Job):
             status = 'Held'
         elif status == 'Eqw':
             status = 'Error'
+        elif status == 'Rq':
+            status = 'Running'
         else:
-            write_log(status, 20)
+            self.write_log(status, 20)
         self.status = status
         return
+    
+    def write_log(self, info, code):
+        """Method to write to a log if an error occurs and the program dies."""
+        log_name = 'queue_mapd.log'
+        file = open(log_name, 'a')
+        date = subprocess.getoutput('date')
+        
+        if int(code) == 20:
+            content = 'I am {0}, and have died because of bad pending job status, with {1} as the attempted status on {2}\n'.format(sys.argv[0], info, date)
+        else:
+            content = 'I am {0}, but I do not know how I got to the point of writing a log...\n'.format(sys.argv[0])
+        
+        file.write(content)
+        sys.exit(code)
         
     def get_status(self):
         """Method to obtain the waiting status of a pending job."""
@@ -570,21 +586,6 @@ def write_setup_files(node_list, queue_name):
         file.write('\n')
     return
 #^--------------------------------------------------------- write_setup_files(node_list)
-
-def write_log(info, code):
-    """Method to write to a log if an error occurs and the program dies."""
-    log_name = 'queue_mapd.log'
-    file = open(log_name, 'a')
-    date = subprocess.getoutput('date')
-    
-    if int(code) == 20:
-        content = 'I am {0}, and have died because of bad pending job status, with {1} as the attempted status on {2}'.format(sys.argv[0], info, date)
-    else:
-        content = 'I am {0}, but I do not know how I got to the point of writing a log...'.format(sys.argv[0])
-    
-    file.write(content)
-    sys.exit(code)
-#^--------------------------------------------------------- write_log(info, code)
 
 def show_usage():
     """Method to display how to use this script on stdout"""
