@@ -4,10 +4,13 @@ import sys, subprocess, time, tarfile
 """Python 3 script which will gather node information and create a partial html webpage
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
-header.html and footer.html for each: Debug and Long. Latest update:
-Aug 25th, 2016 v0.8.3-beta
+header.html and footer.html for each: Debug and Long. There is also a pending job file.
+Latest update: Sept 23rd, 2016.
 Exit codes: 0 - Good
-            20 - Bad Pending Job status"""
+            20 - Bad Pending Job status
+            21 - Bad memory translate
+            22 - Temp ratio not within 0-100
+            24 - Bad Queue-name"""
 
 class Node:
     """Class to hold representation of a node for the CRC at Notre Dame
@@ -26,6 +29,9 @@ class Node:
         self.num_jobs = 0
         self.load = 0
         self.job_list = []
+        self.total_mem = 0
+        self.used_mem = 0
+        self.free_mem = 0
         
     def __repr__(self):
         name = self.name
@@ -37,6 +43,42 @@ class Node:
     def add_job(self, job):
         """Method to add an instance of class Job to the job_list of a node."""
         self.job_list.append(job)
+        self.num_jobs += 1
+        return
+    
+    def get_total_mem(self):
+        """Returns the total amount of memory a node contains as a STRING"""
+        return self.total_mem
+    
+    def get_used_mem(self):
+        """Returns the amount of memory(RAM) a node currently is using as a STRING"""
+        return self.used_mem
+    
+    def get_free_mem(self):
+        """Returns the amount of free RAM a node currently is using as a STRING"""
+        return self.free_mem
+    
+    def set_total_mem(self, mem):
+        """Method which sets the total memory (RAM) that this certain node has, which is found using qstat -F
+        and parsing the node. The amount of total_mem will be stored as an string."""
+        self.total_mem = mem
+        return
+    
+    def set_used_mem(self, u_mem):
+        """Method to set the amount of used memory (RAM) in a certain node. This info is found by parsing qstat -F.
+        The amount of used_mem will be stored as an string."""
+        self.used_mem = u_mem
+        return
+    
+    def set_free_mem(self, default=0):
+        """Method which sets the amount of free memory. If no amount of memory is specified, the funciton will calculate
+        the free memory from the self.total_mem - self.used_mem. Thus, it is important to set those first. If an amount of
+        memory is speified, that will be stored instead. self.free_mem is set as an string."""
+        if default == 0:
+            self.free_mem = (int(self.total_mem) - int(self.used_mem))
+        else:
+            self.free_mem = default
+        return
     
     def set_load(self, load):
         """Method to set the sys-load for a node"""
@@ -199,11 +241,11 @@ class Pending(Job):
         elif status == 'Rq':
             status = 'Running'
         else:
-            self.write_log(status, 20)
+            self.write_pen_log(status, 20)
         self.status = status
         return
     
-    def write_log(self, info, code):
+    def write__pen_log(self, info, code):
         """Method to write to a log if an error occurs and the program dies."""
         log_name = 'queue_mapd.log'
         file = open(log_name, 'a')
@@ -239,7 +281,12 @@ DEBUG_SAVE_FILE = 'index-debug.html'
 PENDING_SAVE_FILE = 'pending.html'
 SUB_NODE_FILE = 'sub-index.html'
 LONG_SETUP_FILE = 'long_node_list.html'
+LONG_MEM_FILE = 'long_mem.html'
+DEBUG_MEM_FILE = 'debug_mem.html'
 DEBUG_SETUP_FILE = 'debug_node_list.html'
+
+LOG_NAME = 'queue_mapd.log'
+
 
 def main():
     """Main will parse cmd args to see if you're setting up or actually running. If you do not specify a cmd arg
@@ -259,8 +306,14 @@ def main():
             #alternative main
             setup_main()
     
+    # This is a daemon, should run forever
     while True:
-        qstat = subprocess.getoutput('qstat -f')
+        temp_stat = subprocess.getoutput('qstat -F')
+        # This will make a list of 3 strings. [0] is all of the nodes and their info. [1] is junk. [2] is pen-jobs.
+        temp_stat = temp_stat.split('\n###############################################################################\n')
+        pending_jobs = temp_stat[2]
+        qstat = temp_stat[0]
+        del temp_stat
             
         node_list = []
         process_host(node_list, qstat, 'Long', True)
@@ -269,14 +322,14 @@ def main():
         process_host(node_list, qstat, 'Debug', True)
         tar_node_files(node_list, 'Debug')
         node_list.clear()
-        process_pending_jobs(qstat.split('#'.center(79, '#'))[2].split('\n'))
+        process_pending_jobs(pending_jobs)
         time.sleep(140)
     sys.exit() #Fail safe incase pigs fly and True is not true ;)
 #^--------------------------------------------------------- main()
 
 def setup_main():
     """Alternative main to script if the --setup flag is specified"""
-    qstat = subprocess.getoutput('qstat -f')
+    qstat = subprocess.getoutput('qstat -F')
     node_list = []
     process_host(node_list, qstat, 'Long', False)
     node_list.clear()
@@ -287,17 +340,30 @@ def setup_main():
 def process_host(node_list, qstat, queue_name, html_switch):
     """Modified method form sge_check.py to gather host information."""
         
+     # Should make these into their own function!!
     if queue_name == 'Long':
         desired_host_list = (subprocess.getoutput("qconf -shgrp_resolved " + '@general_access')).split()
         host_info_list = []
         for host in desired_host_list:
             if qstat.find(host) != (-1):
-            #Searches the long string for the index of the occurance of the specified host, then
-            #parses it the string for just that one line with the host that we want.
-                host_info_list.append((qstat[qstat.find(host):].split('\n'))[0])
-    else:
-        host_info_list = (subprocess.getoutput("qstat -f | grep debug@")).split('\n')
-        
+            #Searches the list of strings for the index of the occurance of the specified host, then
+            #grabs the string of the host we want.
+                q_search = qstat.split('\n---------------------------------------------------------------------------------\n')
+                for node in q_search:
+                    if node.find(host) != (-1):
+                        host_info_list.append(node)
+    elif queue_name == 'Debug':
+        desired_host_list = (subprocess.getoutput("qconf -shgrp_resolved @dqcneh")).split()
+        host_info_list = []
+        for host in desired_host_list:
+            if qstat.find(host) != (-1):
+            #Searches the list of strings for the index of the occurance of the specified host, then
+            #grabs the string of the host we want.
+                q_search = qstat.split('\n---------------------------------------------------------------------------------\n')
+                for node in q_search:
+                    if node.find(host) != (-1):
+                        host_info_list.append(node)
+      
     #Start out with everything at 0, and will count up as encountered.
     total_nodes = 0
     total_cores = 0
@@ -305,11 +371,12 @@ def process_host(node_list, qstat, queue_name, html_switch):
     empty_nodes = 0
     disabled_cores = 0
     for host in host_info_list:
-        temp_node = Node((host.split()[0]))
+        temp_node = Node((host.split()[0].replace('long@', '')))
         cores = host.split()[2].replace('/', ' ').split()
         host_used_cores = cores[1]
         host_total_cores = cores[2]
-        if len(host.split()) == 6 and host.split()[5] == 'd':
+        # If within the first line of the node there is a 'd' at the end, disable it
+        if len(host.split('\n')[0]) == 6 and host.split()[5] == 'd':
             temp_node.set_disabled_switch(True)
             disabled_cores += int(host_total_cores)
         else:    
@@ -319,6 +386,18 @@ def process_host(node_list, qstat, queue_name, html_switch):
         if host_used_cores == 0:
             empty_nodes += 1
         temp_node.set_cores(host_total_cores, host_used_cores)
+        # Reaping the info we want from qstat -F divided up by lines with each node.
+        # so [25] is line 25 down from the start of that node which contains total_mem
+        total_mem = host.split('\n')[25]
+        total_mem = total_mem[total_mem.find('=') +1 :]
+        used_mem = host.split('\n')[26]
+        used_mem = used_mem[used_mem.find('=') +1 :]
+        free_mem = host.split('\n')[27]
+        free_mem = free_mem[free_mem.find('=') + 1 :]
+        temp_node.set_total_mem(total_mem)
+        temp_node.set_used_mem(used_mem)
+        temp_node.set_free_mem(free_mem)
+        
         total_nodes += 1
         node_list.append(temp_node)
         
@@ -336,8 +415,11 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
     """Method to create html for the Debug/General Access Queues."""
     if queue_name == 'Long':
         queue = 'General Access'
-    else:
+    elif queue_name == 'Debug':
         queue = 'Debug'
+    else:
+        queue = queue_name
+    # Need to add others, start with GPU ??? (Technically host groups!!!)
     
     index_header = '<br>\n' + '<table style="width:25%">'.rjust(37) + '\n' + '<tr>'.rjust(24) + '\n' \
                    + '<th><center>Queue Name</center></th>'.rjust(45) + '\n' + '<th><center>Nodes</center></th>'.rjust(40) + '\n' \
@@ -359,6 +441,7 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
         other_queue = 'Long'
     link_to_others = '\n<a href="../{0}" title="{0} Queue">{0} Queue</a>\n'.format(other_queue)
     link_to_others += '<a href="../Pending" title="Go to Pending Jobs">Pending Jobs</a>\n'
+    filter_link = '<a href="../{0}-memory" title="Apply Memory Filter">Memory View</a>\n'.format(queue_name)
     
     open_core = "<a class=\"core green\" href='{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
     taken_core = "<a class=\"core blue\" href='{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
@@ -381,48 +464,169 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
     index_table += '\n</td>\n</tr>\n</table>\n'
     date = subprocess.getoutput("date")
     index_table += '<div class="info"><p><center>Information current as of {0}</center></p></div>\n'.format(str(date))
-    write_index_html(index_header, index_legend, index_table, queue_name, link_to_others)
-    del index_header
-    del index_legend
-    del index_table
+    write_index_html(index_header, index_legend, index_table, queue_name, link_to_others, filter_link)
+    create_memory_html(node_list, index_header, queue_name, link_to_others)
     del link_to_others
-    
+    del index_header
+    del index_table
+    del index_legend
     process_nodes(node_list, qstat)
     return
 #^--------------------------------------------------------- create_html(. . .)
 
+def create_memory_html(node_list, header, queue, link_to_others):
+    """Method which creates the partial html page for the memory-mapped version/filter
+    for this particular queue. It takes the same legend as the core-mapped version uses,
+    it only changes the way the nodes appear. It will color nodes with high percentage memory
+    usage as red, medium as yellow, moderate as green, and low as blue.
+    >=90% = red, 70%-89% = yellow, 36%-69% = green, 0-35 = blue. Gray means the node is disabled."""
+    
+    # NEED to make css for large rectangular boxes to represent each node as a decently sized rectanlge, and colors!!
+    # Using same header + legend. Then start with table and add to it, then make a write_memory_html function to write
+    # it to a file. Don't forget to check all of the other files (scripts etc) to take this extra file.
+    # Add at the top a global for the save path for this file also. (www like the rest) And don't forget to add
+    # memory info to the node pages as well. Just add a table of 2 rows with 3 columns in it:
+    # Used Memory     Free Memory    Total Memory
+    # perhaps make a percentage with them by converting 21.221G into a number and used into a number as well!
+    
+    # All of these nodes will link to the normal node-page for themselves located within their Queue directory
+    red_node = "<a class=\"rect_node red\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    yellow_node = "<a class=\"rect_node yellow\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    green_node = "<a class=\"rect_node green\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    blue_node = "<a class=\"rect_node blue\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    gray_node = "<a class=\"rect_node gray\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    
+    filter_link ='<a href="../{0}" title="Apply Core Filter">Core View</a>\n'.format(queue)
+    
+    mem_table = '\n<br><table style="width:100%; padding: 0px">\n' + '<tr>\n<td>'
+    
+    # Start all at zero, and increment as we find them.
+    num_red = 0
+    num_yellow = 0
+    num_green = 0
+    num_blue = 0
+    num_gray = 0   #Disabled is gray for memory nodes. change disabled cores to gray instead of red as well? (above)
+    for node in node_list:
+        #Need to draw each node to screen using rectangle. Not the cores, just the node themselves!
+        if node.get_disabled_switch():
+            mem_table += gray_node.format(node.get_name())
+            num_gray += 1
+        else:
+            temp_total = translate_memory(node.get_total_mem())
+            temp_used = translate_memory(node.get_used_mem())
+            temp_ratio = int((temp_used/temp_total)*100.0)
+            if temp_ratio <= 35:
+                mem_table += blue_node.format(node.get_name())
+                num_blue += 1
+            elif temp_ratio >35 and temp_ratio <= 69:
+                mem_table += green_node.format(node.get_name())
+                num_green += 1
+            elif temp_ratio >69 and temp_ratio <=89:
+                mem_table += yellow_node.format(node.get_name())
+                num_yellow += 1
+            elif temp_ratio >89 and temp_ratio <=100:
+                mem_table += red_node.format(node.get_name())
+                num_red += 1
+            else:
+                # Need to making logging function not in pending class!!!!
+                sys.exit(22)
+    
+    mem_table += '\n</td>\n</tr>\n</table>\n'
+    date = subprocess.getoutput("date")
+    mem_table += '<div class="info"><p><center>Information current as of {0}</center></p></div>\n'.format(str(date))
+    
+    legend = '<table style="width:25%">\n' + '<tr><th>Memory Usage</th>\n' + '<th>Nodes</th></tr>\n' + '<tr>\n<td>90-100%(Very High)<div class="box red"</div>' \
+             + '</td>\n' + '<td>{0}</td>'.format(str(num_red)) + '\n</tr>\n' + '<tr>\n' + '<td>70-89%(High)<div class="box yellow"</div>' \
+             + '</td>\n' + '<td>{0}</td>'.format(str(num_yellow)) + '\n</tr>\n' + '<tr>\n' + '<td>36-69%(Moderate)<div class="box green"</div>' \
+             + '</td>\n' + '<td>{0}</td>'.format(str(num_green)) + '\n</tr>\n' + '<tr>\n' + '<td>0-35%%(Low)<div class="box blue"</div>' \
+             + '</td>\n' + '<td>{0}</td>'.format(str(num_blue)) + '\n</tr>\n' + '<tr>\n' + '<td>Disabled Node<div class="box gray"</div>' \
+             + '</td>\n' + '<td>{0}</td>'.format(str(num_gray)) + '\n</tr>\n'
+    
+    write_memory_html(header, link_to_others, filter_link, legend, mem_table, queue) 
+    return
+#^--------------------------------------------------------- create_memory_html(node_list, header, legend, table)
+
+def write_memory_html(header, link_to_others, filter_link, legend, mem_table, queue):
+    """Writes the html for the memory filtered version of the queue-map. Will save this partial html to
+    the correct file listed in the Globals at the top of this source code."""
+    
+    if queue == 'Long':
+        file = open(LONG_MEM_FILE, 'w')
+    elif queue == 'Debug':
+        file = open(DEBUG_MEM_FILE, 'w')
+    else:
+        # HCF
+        write_to_log('write_memory_html', 24, queue)
+    
+    file.write(link_to_others)
+    file.write(filter_link)
+    file.write(header)
+    file.write(legend)
+    file.write(mem_table)
+    file.close()
+    return
+#^--------------------------------------------------------- write_memory_html(eader, link, filter, mem_table)
+
+def translate_memory(mem):
+    """Method to translate human readable memory into a reasonably rounded off interger version of it,
+    in GB (this is for HTC/HPC so there just at least be a gigabyte for total.) Will take in mem as the
+    memory to be translated, and return good_memory as the translated memory. Assumes it will receive
+    a string ending in either G or M to represent Gigabyte and Megabyte respectively. Will return a
+    float to represent the memory passed in."""
+    
+    if mem.find('M') != (-1):
+        # Getting rid of the M for megabyte and translating into a Gigabyte (small number!)
+        mem = (float(mem.replace('M','')) /1024.0)
+        return mem
+    elif mem.find('G') != (-1):
+        # Getting rid of G for gigabyte, and returning the float.
+        mem = float(mem.replace('G',''))
+        return mem
+    else:
+        # Halt and catch fire
+        write_to_log('translate_memory', 21, str(mem))
+#^--------------------------------------------------------- translate_memory(mem)
+
+def write_to_log(loc_from, code, prob_var):
+    """Method which writes to a log named as a global--LOG_NAME. It takes the name of the function as a STRING--loc_from and the
+    intened exit code as code as an INT, and it takes prob_var as a STRING (for easy printing!)"""
+    
+    file = open(LOG_NAME, 'a') # Appending the log, to keep a better history of what has happened.
+    file.write('I am {0}, and I had an issue with the var: {1}.\n'.format(loc_from, prob_var))
+    file.close()
+    sys.exit(code)
+#^--------------------------------------------------------- write_to_log(loc_from, code, prob_var)
+
 def process_nodes(node_list, qstat):
     """Method which goes through each node and gathers information from them to be made into
     html and displayed on the Queue 'heat' map."""
-    qstat_nodes = qstat.split('#'.center(79, '#'))[0] #[2] would be pending jobs!
-
+    
+    #Run through each node and add the jobs
     for node in node_list:
-        node_info = (qstat_nodes[qstat_nodes.find(node.get_name()):].split('-'.center(81, '-')))[0]
-        node.set_load(node_info.split()[3])
-        #because of qstat, there will always be an extra element, and the element of the name itself which is not a job!
-        bad_node_info = node_info.split('\n')
-        good_node_info =  []
-        for element in bad_node_info:
-            if element != '':
-                good_node_info.append(element)
-        del node_info
-        del bad_node_info
-        node.set_num_jobs(len(good_node_info) -1)
-        if int(node.get_num_jobs()) > 0:
-            for i in range(1, int(node.get_num_jobs()) + 1 ):
-                temp = good_node_info[i].split()
-                job = Job(temp[2], temp[3], temp[7])
-                job.set_priority(temp[1])
-                job.set_id(temp[0])
-                node.add_job(job)
+        node_stat = qstat[qstat.find(node.get_name()):]
+        # In qstat -F, qf:min_cpu . . . . is the last item before the jobs are listed, 28 is how many char's that string is (don't want it)
+        node_stat= node_stat[node_stat.find('qf:min_cpu_interval=00:05:00') + 28\
+                             :node_stat.find('\n---------------------------------------------------------------------------------\n')]
+        # There is always an extra '\n' in here, so subtract 1 to get rid of it
+        num_jobs = len(node_stat.split('\n')) -1
+        # If there are any jobs, parse them and gather info
+        if num_jobs > 0:
+            # Python is non-inclusive for the right operant, and we want to skip the extra '\n' so start at 1, and want to go num_jobs
+            for i in range(1, num_jobs + 1):
+                info = node_stat.split('\n')[i].split()
+                temp_job = Job(info[2], info[3], info[7])
+                temp_job.set_id(info[0])
+                temp_job.set_priority(info[1])
+                node.add_job(temp_job)
     create_node_html(node_list)
     return
 #^--------------------------------------------------------- process_nodes(node_list, qstat)
 
-def process_pending_jobs(pend_list):
+def process_pending_jobs(pending):
     """Method which takes in a string of the qstat-pending jobs, and processes that string to
     be made into html for the pending-jobs page(v0.9-beta-2)."""
     
+    pend_list = pending.split('\n')
     pending_job_list = []
     for job in pend_list:
         if job == '':
@@ -497,6 +701,28 @@ def create_node_html(node_list):
                 + '<td>{0}</td>'.format(job.get_core_info()) + '\n' + '<td>{0}</td>'.format(job.get_user()) +'\n' + '</tr>')
             node_job_header += '\n' + '</table>' + '\n'
         
+        # Finding memory status in relation to the ratio of used-mem : total-mem
+        total_mem = translate_memory(node.get_total_mem())
+        used_mem = translate_memory(node.get_used_mem())
+        ratio = int((used_mem/total_mem)*100.0)
+        if ratio <= 35:
+            mem_status = "<a class=\"core blue\" href='#' title=\"Low\"></a>Low\n"
+        elif ratio >35 and ratio <= 69:
+            mem_status = "<a class=\"core green\" href='#' title=\"Moderate\"></a>Moderate\n"
+        elif ratio >69 and ratio <=89:
+            mem_status = "<a class=\"core yellow\" href='#' title=\"High\"></a>High\n"
+        elif ratio >89 and ratio <=100:
+            mem_status = "<a class=\"core red\" href='#' title=\"Danger\"></a>Very High\n"
+        else:
+            # HCF
+            write_to_log('create_node_html', 22, str(ratio))
+        
+        mem_info = '<table style="width:25%">\n' + '<tr>\n' + '<th>Memory Usage</th>\n' + '<th>{0}</th>\n'.format(mem_status) \
+        + '<th>{0}%</th>\n'.format(str(ratio)) + '<tr>\n' + '<td>Total Memory</td>\n' + '<td>Used Memory</td>\n' + '<td>Free Memory</td>\n' + '</tr>\n' + '<tr>\n' + \
+        '<td>{0}</td>\n'.format(node.get_total_mem()) + '<td>{0}</td>\n'.format(node.get_used_mem()) + '<td>{0}</td>\n'.format(node.get_free_mem())\
+        + '</tr>\n' + '</table>\n'
+        node_job_header += mem_info
+        
         if node.get_disabled_switch():
             node_table += '<p>This node has been disabled by the CRC Staff. This is not a cause for alarm. Do not alert CRC Support unless every node' \
             + ' has this message.</p>'
@@ -558,7 +784,7 @@ def write_node_html(name, header, table, jobs, n_map):
     return
 #^--------------------------------------------------------- write_node_html(name, header, table)
 
-def write_index_html(header, legend, table, queue_name, link_to_queue):
+def write_index_html(header, legend, table, queue_name, link_to_queue, filter_link):
     """Method to write to a file the html code generated for the Debug/Long Queues."""
     if queue_name == 'Long':    
         file = open(LONG_SAVE_FILE, 'w')
@@ -566,6 +792,7 @@ def write_index_html(header, legend, table, queue_name, link_to_queue):
         file = open(DEBUG_SAVE_FILE, 'w')
         
     file.write(link_to_queue)
+    file.write(filter_link)
     file.write(header)
     file.write(legend)
     file.write(table)

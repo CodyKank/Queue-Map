@@ -9,10 +9,10 @@
 desired_path="/var/www/html" #you can change this if need be
 
 #CRC info to gather files
-webpage_url="URL FOR CRC FILES HERE"
+webpage_url="CURL URL HERE !!!!!!!!!!!!!"
 
 #Local info to mv files to protected areas
-psword="LOCAL (WEBSERVER) SUDO PASSWORD"
+psword="LOCAL PASSWORD OR CHANGE SUDOERS FILE!!!!!!!!!!!"
 long_file="long_nodes.txt" #These can stay this way
 debug_file="debug_nodes.txt" # "
 
@@ -23,10 +23,17 @@ echo $psword | sudo -S mkdir $desired_path/Debug
 echo $psword | sudo -S mkdir $desired_path/Long
 echo $psword | sudo -S mkdir $desired_path/Pending
 
+#Creating Memory-Dir's
+echo $psword | sudo -S mkdir $desired_path/Debug-memory
+echo $psword | sudo -S mkdir $desired_path/Long-memory
+
 echo "Moving index's to their rightful places . . ."
 echo $psword | sudo -S cp index-long.php $desired_path/Long/index.php
+echo $psword | sudo -S cp index-long.php $desired_path/Long-memory/index.php
 echo $psword | sudo -S cp index-debug.php $desired_path/Debug/index.php
+echo $psword | sudo -S cp index-debug.php $desired_path/Debug-memory/index.php
 echo $psword | sudo -S cp index-pending.php $desired_path/Pending/index.php
+
 
 echo "Transferring templates to $desired_path . . ."
 echo $psword | sudo -S cp -r templates $desired_path/templates

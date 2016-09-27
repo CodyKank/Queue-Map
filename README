@@ -1,11 +1,11 @@
-   _____ _____   _____    ____                                               ___   ___   ____  
-  / ____|  __ \ / ____|  / __ \                                             / _ \ / _ \ |___ \ 
- | |    | |__) | |      | |  | |_   _  ___ _   _  ___ _ __ ___   __ _ _ __ | | | | (_) |  __) |
- | |    |  _  /| |      | |  | | | | |/ _ \ | | |/ _ \ '_ ` _ \ / _` | '_ \| | | |> _ <  |__ < 
- | |____| | \ \| |____  | |__| | |_| |  __/ |_| |  __/ | | | | | (_| | |_) | |_| | (_) | ___) |
-  \_____|_|  \_\\_____|  \___\_\\__,_|\___|\__,_|\___|_| |_| |_|\__,_| .__/ \___(_)___(_)____/ 
-                                                                     | |                       
-                                                                     |_|                       
+      _____ _____   _____    ____                        __  __            __   ___  
+     / ____|  __ \ / ____|  / __ \                      |  \/  |          /_ | / _ \ 
+    | |    | |__) | |      | |  | |_   _  ___ _   _  ___| \  / | __ _ _ __ | || | | |
+    | |    |  _  /| |      | |  | | | | |/ _ \ | | |/ _ \ |\/| |/ _` | '_ \| || | | |
+    | |____| | \ \| |____  | |__| | |_| |  __/ |_| |  __/ |  | | (_| | |_) | || |_| |
+     \_____|_|  \_\\_____|  \___\_\\__,_|\___|\__,_|\___|_|  |_|\__,_| .__/|_(_)___/ 
+                                                                   | |             
+                                                                   |_|             
 --------------------------------------------------------------------------------------------
 
 * The CRC Queue map was started in early August, 2016 by intern Cody Kankel
@@ -23,6 +23,18 @@
     or so. This all assumes you already have a working installation of a web server.
     It has been tested with apache2 and PHP 7.0. A working equivalent of those is 
     required for this to work correctly.
+
+* What it will create:
+    The daemon will spit out a few files as said in How it Works, and those files are
+    partial html pages which will be pieced together with php. Eventually, a series of
+    pages will be created on your webserver. Once everything is up and running, if you
+    access your webserver through a browser you will be dumped at whatever your index
+    is. I am planning on creating one for the Queue-Map itself. For now, there will be
+    the classic listing of all available links within the server. There will be a page 
+    for the Debug Queue, a memory filter for the Debug Queue, Pening Jobs, the General
+    Access hostgroup, a memory filter for the General Access hostgroup, and a page 
+    for every node which is in the previous hostgroups/queues. For detailed information
+    and screen shots see : https://github.com/CodyKank/Queue-Map/wiki
 
 * NOTE: the python daemon on the front end is python 3.4.0 FYI.
 
@@ -107,4 +119,4 @@
 
 * To See a few screenshots, check out the wikipage on Github: https://github.com/CodyKank/Queue-Map/wiki
 
-Version: 0.8.3-Beta
+Version: 1.0

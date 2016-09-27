@@ -62,6 +62,14 @@ th, td {
         background: #0014eb;
 }
 
+.yellow {
+	background: #FFFC33;
+}
+
+.gray {
+	background: #A3A3A3;
+}
+
 .core {
         float: left;
         width: 12px;
@@ -77,6 +85,13 @@ th, td {
         display: inline-block;
         border: 2px solid black;
         padding: 2px;
+}
+
+.rect_node {
+        width: 60px;
+        height: 20px;
+        display: inline-block;
+        border: 2px solid black;
 }
 
 .info {
