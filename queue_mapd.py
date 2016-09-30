@@ -5,7 +5,7 @@ import sys, subprocess, time, tarfile
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
 header.html and footer.html for each: Debug and Long. There is also a pending job file.
-Latest update: Sept 23rd, 2016.
+Latest update: Sept 30th, 2016.
 Exit codes: 0 - Good
             20 - Bad Pending Job status
             21 - Bad memory translate
@@ -528,8 +528,8 @@ def create_memory_html(node_list, header, queue, link_to_others):
                 mem_table += red_node.format(node.get_name())
                 num_red += 1
             else:
-                # Need to making logging function not in pending class!!!!
-                sys.exit(22)
+                # Halt and catch fire, bad data
+                write_to_log('create_memory_html', 22, temp_ratio)
     
     mem_table += '\n</td>\n</tr>\n</table>\n'
     date = subprocess.getoutput("date")
@@ -591,7 +591,9 @@ def write_to_log(loc_from, code, prob_var):
     """Method which writes to a log named as a global--LOG_NAME. It takes the name of the function as a STRING--loc_from and the
     intened exit code as code as an INT, and it takes prob_var as a STRING (for easy printing!)"""
     
+    date = subprocess.getoutput("date")
     file = open(LOG_NAME, 'a') # Appending the log, to keep a better history of what has happened.
+    file.write('DATE: {0}\n-----------------------------------\n'.format(date))
     file.write('I am {0}, and I had an issue with the var: {1}.\n'.format(loc_from, prob_var))
     file.close()
     sys.exit(code)
