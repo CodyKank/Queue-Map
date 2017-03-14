@@ -57,7 +57,7 @@ do
         mem="${name}-memory"
         mkdir -p $desired_path/Queue-Map/HG/$name/$line
         mkdir -p $desired_path/Queue-Map/HG/$mem/$line
-        cp templates/index-node.php $desired_path/Queue-Map/HG/$name/$line/index.php
+        cp index-node.php $desired_path/Queue-Map/HG/$name/$line/index.php
         #cp index-node.php $desired_path/Queue-Map/HG/$mem/$line/index.php
     done < $i
     rm $i
