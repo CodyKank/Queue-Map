@@ -3,7 +3,7 @@
 # Script to setup a Queue-Map.
 # Script will create the necesarry directores described in README
 # Script MUST BE RAN AS ROOT!!!
-# Dec 13, 2016
+# Mar 14, 2017
 
 #Making so errors stop the script
 #set -e
@@ -47,18 +47,18 @@ rm queue_mapd-setup.txt
 echo "Grabbing queue_mapd-nodes.tar.gz and creating dir's for each node. . ."
 curl -o queue_mapd-nodes.tar.gz $webpage_url/queue_mapd-nodes.tar.gz
 tar -xzf queue_mapd-nodes.tar.gz
-# Here, i will be the name of the HG while $line is the name of the node being created
+# Here, $i will be the name of the HG while $line is the name of the node being created
 # This loop is self clearning so all *txt files here will be deleted
 for i in *.txt;
 do
     name=$(basename "$i" .txt)
-    while IFS= read -r line
+    while IFS= read -r line # For each line in $i
     do
         mem="${name}-memory"
         mkdir -p $desired_path/Queue-Map/HG/$name/$line
         mkdir -p $desired_path/Queue-Map/HG/$mem/$line
-        cp index-node.php $desired_path/Queue-Map/HG/$name/$line/index.php
-        cp index-node.php $desired_path/Queue-Map/HG/$mem/$line/index.php
+        cp templates/index-node.php $desired_path/Queue-Map/HG/$name/$line/index.php
+        #cp index-node.php $desired_path/Queue-Map/HG/$mem/$line/index.php
     done < $i
     rm $i
 done
@@ -69,9 +69,10 @@ cp index-pending.php $desired_path/Queue-Map/Pending/index.php
 
 echo "Transferring templates and styles.css to $desired_path/Queue-Map. . ."
 cp -r templates $desired_path/Queue-Map/templates
-cp $desired_path/Queue-Map/styles.css
+cp styles.css $desired_path/Queue-Map/styles.css
 
-
+# Add some sort of way to detect if something went wrong?
+# If so, don't show this happy message below?
 
 echo "-----------------------COMPLETE-----------------------"
 echo ""
@@ -84,6 +85,6 @@ echo "all scripts are configured to the location the script is going to be spitt
 echo "out at."
 echo ""
 echo "Once you know things are where they should be, make sure you configured the"
-echo "grab_files.sh script for your info to grab the files."
+echo "getFiles.sh script for your info to grab the files."
 echo "If it is configured already, add this lines to sudo crontab -e:"
 echo "*/3 * * * * $(pwd)/grab_files.sh"
