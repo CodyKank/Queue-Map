@@ -4,13 +4,14 @@ import sys, subprocess, time, tarfile
 """Python 3 script which will gather node information and create a partial html webpage
 from that information for a 'heat' map of the queue. This partial page is a component to
 be included from index.php on the current web-server. There are two other components,
-header.html and footer.html for each: Debug and Long. There is also a pending job file.
-Latest update: Sept 30th, 2016.
+header.html and footer.html for each: host group. There is also a pending job file.
+Latest update: Jan 3rd, 2017.
 Exit codes: 0 - Good
             20 - Bad Pending Job status
             21 - Bad memory translate
             22 - Temp ratio not within 0-100
             24 - Bad Queue-name"""
+
 
 class Node:
     """Class to hold representation of a node for the CRC at Notre Dame
@@ -276,22 +277,31 @@ class Pending(Job):
 #If you change the names here, don't forget to change them in cron job script and php files on webserver!
 #If you are using a curl method of obtaining files, then make sure you change path to your www dir etc!
 #(as in afs/crc.nd.edu/user/j/jdoe/www/index-long.html)
-LONG_SAVE_FILE = 'index-long.html'
-DEBUG_SAVE_FILE = 'index-debug.html'
-PENDING_SAVE_FILE = 'pending.html'
-SUB_NODE_FILE = 'sub-index.html'
-LONG_SETUP_FILE = 'long_node_list.html'
-LONG_MEM_FILE = 'long_mem.html'
-DEBUG_MEM_FILE = 'debug_mem.html'
-DEBUG_SETUP_FILE = 'debug_node_list.html'
+
+#Global file names etc
+HOSTGROUPLIST = []
+SETUPFILE = 'afs/crc.nd.edu/user/c/ckankel/www/queue_mapd-setup.txt'
+CORE_HOSTGROUPS = 'afs/crc.nd.edu/user/c/ckankel/www/queue_mapd-core.tar.gz'
+MEM_HOSTGROUPS = 'afs/crc.nd.edu/user/c/ckankel/www/queue_mapd-mem.tar.gz'
+NODEFILE = 'afs/crc.nd.edu/user/c/ckankel/www/queue_mapd-nodes.tar.gz'
+PENDING_SAVE_FILE = 'afs/crc.nd.edu/user/c/ckankel/www/pending-jobs.html'
+
+""" Making a setup file which only has the hostgroups in it one per line no '@'.
+Going to be read in by curl_setup_files.sh Also will need a file for all of the nodes in
+each hostgroup. Make a file for each host group and tar it together just like if running it
+normally, then have curl_files script untar it for each node, which are all prefixed
+depending on which HG they belong to.
+Then, make a tar file for each host-group, and at the end tar.gz everything into one file.
+The curl_files.sh script will grab that and untar everything.
+****Make a global list containing the hostgroups so the files to tar together are known!"""
 
 LOG_NAME = 'queue_mapd.log'
 
 
 def main():
     """Main will parse cmd args to see if you're setting up or actually running. If you do not specify a cmd arg
-    the script will pretend its a daemon and run continuously. I suggest './sge-graph.py &' to run it indefinitly"""
-    global LONG_SAVE_FILE, DEBUG_SAVE_FILE, LONG_SETUP_FILE, DEBUG_SETUP_FILE, PENDING_SAVE_FILE 
+    the script will pretend its a daemon and run continuously. I suggest './queue_map.py &' to run it indefinitly"""
+    global LOG_NAME, SETUPFILE, NODEFILE, HOSTGROUPLIST, MEM_HOSTGROUPS, CORE_HOSTGROUPS
     
     if len(sys.argv) > 1:
         if len(sys.argv) > 2:
@@ -307,53 +317,64 @@ def main():
             setup_main()
     
     # This is a daemon, should run forever
+    
     while True:
-        temp_stat = subprocess.getoutput('qstat -F')
-        # This will make a list of 3 strings. [0] is all of the nodes and their info. [1] is junk. [2] is pen-jobs.
-        temp_stat = temp_stat.split('\n###############################################################################\n')
-        pending_jobs = temp_stat[2]
-        qstat = temp_stat[0]
-        del temp_stat
+        pen_bool = True # Making sure pending jobs are only calculated once per entire run!
+        HOSTGROUPLIST = get_hg_list()
+        for host in HOSTGROUPLIST:
             
-        node_list = []
-        process_host(node_list, qstat, 'Long', True)
-        tar_node_files(node_list, 'Long')
-        node_list.clear()
-        process_host(node_list, qstat, 'Debug', True)
-        tar_node_files(node_list, 'Debug')
-        node_list.clear()
-        process_pending_jobs(pending_jobs)
-        time.sleep(140)
-    sys.exit() #Fail safe incase pigs fly and True is not true ;)
+            temp_stat = subprocess.getoutput('qstat -F')
+            # This will make a list of 3 strings. [0] is all of the nodes and their info. [1] is junk. [2] is pen-jobs.
+            temp_stat = temp_stat.split('\n###############################################################################\n')
+            pending_jobs = temp_stat[2]
+            qstat = temp_stat[0]
+            del temp_stat
+            
+            node_list = []
+            process_host(node_list, qstat, host, True)
+            tar_node_files(node_list, host)
+            node_list.clear()
+            if pen_bool:    
+                process_pending_jobs(pending_jobs)
+                pen_bool = False    # Flipping the switch
+            del pending_jobs
+        # tar together all of the HG's tar.gz's which contain all the node files
+        tar_hostGroups()
+        time.sleep(200)
+    sys.exit() #Fail safe incase pigs fly and True is not true
 #^--------------------------------------------------------- main()
 
 def setup_main():
     """Alternative main to script if the --setup flag is specified"""
     qstat = subprocess.getoutput('qstat -F')
+    hg_list = get_hg_list()
     node_list = []
-    process_host(node_list, qstat, 'Long', False)
-    node_list.clear()
-    process_host(node_list, qstat, 'Debug', False)
+    for host in hg_list:
+        process_host(node_list, qstat, host, False)
+        node_list.clear()
     sys.exit()
 #^--------------------------------------------------------- setup_main()
+ 
+def get_hg_list():
+    """Function for obtaining the list of HG's supplied by qconf
+    Returns a list of the available host groups recognized and
+    reported by qconf"""
+    qconf = subprocess.getoutput("qconf -shgrpl").split('\n')
+    qconf_list = []
+    for line in qconf:
+        qconf_list.append(line)   
+    return qconf_list
+#^--------------------------------------------------------- get_hg_list()
     
-def process_host(node_list, qstat, queue_name, html_switch):
-    """Modified method form sge_check.py to gather host information."""
+def process_host(node_list, qstat, hg, html_switch):
+    """Modified method form node_search.py to gather host information."""
         
-     # Should make these into their own function!!
-    if queue_name == 'Long':
-        desired_host_list = (subprocess.getoutput("qconf -shgrp_resolved " + '@general_access')).split()
-        host_info_list = []
-        for host in desired_host_list:
-            if qstat.find(host) != (-1):
-            #Searches the list of strings for the index of the occurance of the specified host, then
-            #grabs the string of the host we want.
-                q_search = qstat.split('\n---------------------------------------------------------------------------------\n')
-                for node in q_search:
-                    if node.find(host) != (-1):
-                        host_info_list.append(node)
-    elif queue_name == 'Debug':
-        desired_host_list = (subprocess.getoutput("qconf -shgrp_resolved @dqcneh")).split()
+    if hg:
+        # The '@' is required here but it is already included if using qconf -shgrpl
+        desired_host_list = (subprocess.getoutput("qconf -shgrp_resolved " + hg)).split()
+        # If there aren't any nodes to a specified host group, we don't want to make a page for it
+        if desired_host_list is None:
+            return
         host_info_list = []
         for host in desired_host_list:
             if qstat.find(host) != (-1):
@@ -376,49 +397,59 @@ def process_host(node_list, qstat, queue_name, html_switch):
         host_used_cores = cores[1]
         host_total_cores = cores[2]
         # If within the first line of the node there is a 'd' at the end, disable it
-        if len(host.split('\n')[0]) == 6 and host.split()[5] == 'd':
+        if len(host.split('\n')[0].split()) == 6 and ((host.split('\n')[0]).split()[5] == 'd' or (host.split('\n')[0]).split()[5] == 'au' or (host.split('\n')[0]).split()[5] == 'E'):
             temp_node.set_disabled_switch(True)
             disabled_cores += int(host_total_cores)
-        else:    
+            # If node is in error, with au and E cannot get memory usage
+            temp_node.set_total_mem('NA')
+            temp_node.set_used_mem('NA')
+            temp_node.set_free_mem('NA')
+        else:
+            # If node is not in an error state, find the core and memory usage
+            # so [25] is line 25 down from the start of that node which contains total_mem
             temp_node.set_disabled_switch(False)
             used_cores += int(host_used_cores)
             total_cores += int(host_total_cores)
+            total_mem = host.split('\n')[25]
+            total_mem = total_mem[total_mem.find('=') +1 :]
+            used_mem = host.split('\n')[26]
+            used_mem = used_mem[used_mem.find('=') +1 :]
+            free_mem = host.split('\n')[27]
+            free_mem = free_mem[free_mem.find('=') + 1 :]
+            temp_node.set_total_mem(total_mem)
+            temp_node.set_used_mem(used_mem)
+            temp_node.set_free_mem(free_mem)
         if host_used_cores == 0:
             empty_nodes += 1
         temp_node.set_cores(host_total_cores, host_used_cores)
-        # Reaping the info we want from qstat -F divided up by lines with each node.
-        # so [25] is line 25 down from the start of that node which contains total_mem
-        total_mem = host.split('\n')[25]
-        total_mem = total_mem[total_mem.find('=') +1 :]
-        used_mem = host.split('\n')[26]
-        used_mem = used_mem[used_mem.find('=') +1 :]
-        free_mem = host.split('\n')[27]
-        free_mem = free_mem[free_mem.find('=') + 1 :]
-        temp_node.set_total_mem(total_mem)
-        temp_node.set_used_mem(used_mem)
-        temp_node.set_free_mem(free_mem)
         
         total_nodes += 1
         node_list.append(temp_node)
         
     #If --setup is not specified, its most likely acting as daemon so make the html info
     if html_switch:
-        create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, disabled_cores, queue_name, qstat)
+        create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, disabled_cores, hg, qstat)
         
+    #If --setup is supplied, then html_switch will be false and so we don't need to make html, just want Hg and node names
     else:
-        write_setup_files(node_list, queue_name)
+        write_setup_files(node_list, hg)
+        create_HG_list()
+        tar_setup_files()
 
     return
 #^--------------------------------------------------------- process_host(node_list)
   
-def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, disabled_cores, queue_name, qstat):
-    """Method to create html for the Debug/General Access Queues."""
-    if queue_name == 'Long':
+def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, disabled_cores, hostGroup, qstat):
+    """Method to create html for the Debug/General Access Queues.
+    Need to make this able to do every host group, change all the 'queue' to the hostgroup name, make link to the main page"""
+    
+    
+    if hostGroup == 'Long':
         queue = 'General Access'
-    elif queue_name == 'Debug':
+    elif hostGroup == 'Debug':
         queue = 'Debug'
     else:
-        queue = queue_name
+        queue = hostGroup
     # Need to add others, start with GPU ??? (Technically host groups!!!)
     
     index_header = '<br>\n' + '<table style="width:25%">'.rjust(37) + '\n' + '<tr>'.rjust(24) + '\n' \
@@ -435,13 +466,13 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
                 + '<td>Total Cores:</td>'.rjust(49) + '\n' + '<td>{0}</td>'.format(total_cores).rjust(41) + '\n' \
                 + '</tr>'.rjust(25) + '\n' + '</table>'.rjust(20)
     
-    if queue_name == 'Long':
+    if hostGroup == 'Long':
         other_queue = 'Debug'
     else:
         other_queue = 'Long'
-    link_to_others = '\n<a href="../{0}" title="{0} Queue">{0} Queue</a>\n'.format(other_queue)
+    link_to_others = '\n<a href="../../" title="{0} Page">{0} Page</a>\n'.format('main')
     link_to_others += '<a href="../Pending" title="Go to Pending Jobs">Pending Jobs</a>\n'
-    filter_link = '<a href="../{0}-memory" title="Apply Memory Filter">Memory View</a>\n'.format(queue_name)
+    filter_link = '<a href="../{0}-memory" title="Apply Memory Filter">Memory View</a>\n'.format(hostGroup)
     
     open_core = "<a class=\"core green\" href='{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
     taken_core = "<a class=\"core blue\" href='{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
@@ -464,8 +495,8 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
     index_table += '\n</td>\n</tr>\n</table>\n'
     date = subprocess.getoutput("date")
     index_table += '<div class="info"><p><center>Information current as of {0}</center></p></div>\n'.format(str(date))
-    write_index_html(index_header, index_legend, index_table, queue_name, link_to_others, filter_link)
-    create_memory_html(node_list, index_header, queue_name, link_to_others)
+    write_index_html(index_header, index_legend, index_table, hostGroup, link_to_others, filter_link)
+    create_memory_html(node_list, index_header, hostGroup, link_to_others)
     del link_to_others
     del index_header
     del index_table
@@ -474,29 +505,21 @@ def create_html(node_list, total_cores, used_cores, total_nodes, empty_nodes, di
     return
 #^--------------------------------------------------------- create_html(. . .)
 
-def create_memory_html(node_list, header, queue, link_to_others):
+def create_memory_html(node_list, header, hostGroup, link_to_others):
     """Method which creates the partial html page for the memory-mapped version/filter
     for this particular queue. It takes the same legend as the core-mapped version uses,
     it only changes the way the nodes appear. It will color nodes with high percentage memory
     usage as red, medium as yellow, moderate as green, and low as blue.
     >=90% = red, 70%-89% = yellow, 36%-69% = green, 0-35 = blue. Gray means the node is disabled."""
     
-    # NEED to make css for large rectangular boxes to represent each node as a decently sized rectanlge, and colors!!
-    # Using same header + legend. Then start with table and add to it, then make a write_memory_html function to write
-    # it to a file. Don't forget to check all of the other files (scripts etc) to take this extra file.
-    # Add at the top a global for the save path for this file also. (www like the rest) And don't forget to add
-    # memory info to the node pages as well. Just add a table of 2 rows with 3 columns in it:
-    # Used Memory     Free Memory    Total Memory
-    # perhaps make a percentage with them by converting 21.221G into a number and used into a number as well!
+    # All of these nodes will link to the normal node-page for themselves located within their Host-group directory
+    red_node = "<a class=\"rect_node red\" href='../" + hostGroup + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    yellow_node = "<a class=\"rect_node yellow\" href='../" + hostGroup + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    green_node = "<a class=\"rect_node green\" href='../" + hostGroup + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    blue_node = "<a class=\"rect_node blue\" href='../" + hostGroup + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
+    gray_node = "<a class=\"rect_node gray\" href='../" + hostGroup + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
     
-    # All of these nodes will link to the normal node-page for themselves located within their Queue directory
-    red_node = "<a class=\"rect_node red\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
-    yellow_node = "<a class=\"rect_node yellow\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
-    green_node = "<a class=\"rect_node green\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
-    blue_node = "<a class=\"rect_node blue\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
-    gray_node = "<a class=\"rect_node gray\" href='../" + queue + "/{0}' title=\"{0}\"></a>\n" #will need .format(node_name)
-    
-    filter_link ='<a href="../{0}" title="Apply Core Filter">Core View</a>\n'.format(queue)
+    filter_link ='<a href="../{0}" title="Apply Core Filter">Core View</a>\n'.format(hostGroup)
     
     mem_table = '\n<br><table style="width:100%; padding: 0px">\n' + '<tr>\n<td>'
     
@@ -512,8 +535,8 @@ def create_memory_html(node_list, header, queue, link_to_others):
             mem_table += gray_node.format(node.get_name())
             num_gray += 1
         else:
-            temp_total = translate_memory(node.get_total_mem())
-            temp_used = translate_memory(node.get_used_mem())
+            temp_total = translate_memory(node.get_total_mem(), node)
+            temp_used = translate_memory(node.get_used_mem(), node)
             temp_ratio = int((temp_used/temp_total)*100.0)
             if temp_ratio <= 35:
                 mem_table += blue_node.format(node.get_name())
@@ -542,22 +565,24 @@ def create_memory_html(node_list, header, queue, link_to_others):
              + '</td>\n' + '<td>{0}</td>'.format(str(num_blue)) + '\n</tr>\n' + '<tr>\n' + '<td>Disabled Node<div class="box gray"</div>' \
              + '</td>\n' + '<td>{0}</td>'.format(str(num_gray)) + '\n</tr>\n'
     
-    write_memory_html(header, link_to_others, filter_link, legend, mem_table, queue) 
+    write_memory_html(header, link_to_others, filter_link, legend, mem_table, hostGroup) 
     return
 #^--------------------------------------------------------- create_memory_html(node_list, header, legend, table)
 
-def write_memory_html(header, link_to_others, filter_link, legend, mem_table, queue):
+def write_memory_html(header, link_to_others, filter_link, legend, mem_table, hostGroup):
     """Writes the html for the memory filtered version of the queue-map. Will save this partial html to
     the correct file listed in the Globals at the top of this source code."""
     
-    if queue == 'Long':
+    """if queue == 'Long':
         file = open(LONG_MEM_FILE, 'w')
     elif queue == 'Debug':
         file = open(DEBUG_MEM_FILE, 'w')
     else:
         # HCF
-        write_to_log('write_memory_html', 24, queue)
+        write_to_log('write_memory_html', 24, queue)"""
     
+    fileName = (hostGroup.replace('@', '')) + '-mem'
+    file = open(fileName, 'w')
     file.write(link_to_others)
     file.write(filter_link)
     file.write(header)
@@ -567,12 +592,12 @@ def write_memory_html(header, link_to_others, filter_link, legend, mem_table, qu
     return
 #^--------------------------------------------------------- write_memory_html(eader, link, filter, mem_table)
 
-def translate_memory(mem):
+def translate_memory(mem, node):
     """Method to translate human readable memory into a reasonably rounded off interger version of it,
-    in GB (this is for HTC/HPC so there just at least be a gigabyte for total.) Will take in mem as the
+    in GB (this is for HTC/HPC so there will at least be a gigabyte for total.) Will take in mem as the
     memory to be translated, and return good_memory as the translated memory. Assumes it will receive
     a string ending in either G or M to represent Gigabyte and Megabyte respectively. Will return a
-    float to represent the memory passed in."""
+    float to represent the memory passed in. If a NA is received then string NA will be returned."""
     
     if mem.find('M') != (-1):
         # Getting rid of the M for megabyte and translating into a Gigabyte (small number!)
@@ -582,12 +607,14 @@ def translate_memory(mem):
         # Getting rid of G for gigabyte, and returning the float.
         mem = float(mem.replace('G',''))
         return mem
+    elif mem == 'NA':
+        return mem
     else:
         # Halt and catch fire
-        write_to_log('translate_memory', 21, str(mem))
+        write_to_log('translate_memory', 21, str(mem), True, node)
 #^--------------------------------------------------------- translate_memory(mem)
 
-def write_to_log(loc_from, code, prob_var):
+def write_to_log(loc_from, code, prob_var, nodeSwitch=False, node=None):
     """Method which writes to a log named as a global--LOG_NAME. It takes the name of the function as a STRING--loc_from and the
     intened exit code as code as an INT, and it takes prob_var as a STRING (for easy printing!)"""
     
@@ -595,6 +622,11 @@ def write_to_log(loc_from, code, prob_var):
     file = open(LOG_NAME, 'a') # Appending the log, to keep a better history of what has happened.
     file.write('DATE: {0}\n-----------------------------------\n'.format(date))
     file.write('I am {0}, and I had an issue with the var: {1}.\n'.format(loc_from, prob_var))
+    if nodeSwitch:
+        file.write('\nThe node causing problems is: {0}\n'.format(node.get_name()))
+        file.write("This node's memory is as follows:\n")
+        file.write("Total Memory: {0}\nUsed Memory: {1}\nFree Memory: {2}\n".format(node.get_total_mem(), node.get_used_mem(), node.get_free_mem()))
+        
     file.close()
     sys.exit(code)
 #^--------------------------------------------------------- write_to_log(loc_from, code, prob_var)
@@ -613,7 +645,7 @@ def process_nodes(node_list, qstat):
         num_jobs = len(node_stat.split('\n')) -1
         # If there are any jobs, parse them and gather info
         if num_jobs > 0:
-            # Python is non-inclusive for the right operant, and we want to skip the extra '\n' so start at 1, and want to go num_jobs
+            # Python is non-inclusive for the right operand, and we want to skip another extra '\n' so start at 1, and want to go num_jobs
             for i in range(1, num_jobs + 1):
                 info = node_stat.split('\n')[i].split()
                 temp_job = Job(info[2], info[3], info[7])
@@ -665,9 +697,10 @@ def create_pending_html(pending_job_list):
 def write_pending(content):
     """Method to write to a file the html for the pending job page"""
     
-    file = open(PENDING_SAVE_FILE, 'w')
+    """file = open(PENDING_SAVE_FILE, 'w')
     file.write(content)
-    file.close()
+    file.close()"""
+    pass
     return
 #^--------------------------------------------------------- write_pending(content)
 
@@ -704,20 +737,23 @@ def create_node_html(node_list):
             node_job_header += '\n' + '</table>' + '\n'
         
         # Finding memory status in relation to the ratio of used-mem : total-mem
-        total_mem = translate_memory(node.get_total_mem())
-        used_mem = translate_memory(node.get_used_mem())
-        ratio = int((used_mem/total_mem)*100.0)
-        if ratio <= 35:
-            mem_status = "<a class=\"core blue\" href='#' title=\"Low\"></a>Low\n"
-        elif ratio >35 and ratio <= 69:
-            mem_status = "<a class=\"core green\" href='#' title=\"Moderate\"></a>Moderate\n"
-        elif ratio >69 and ratio <=89:
-            mem_status = "<a class=\"core yellow\" href='#' title=\"High\"></a>High\n"
-        elif ratio >89 and ratio <=100:
-            mem_status = "<a class=\"core red\" href='#' title=\"Danger\"></a>Very High\n"
+        total_mem = translate_memory(node.get_total_mem(), node)
+        used_mem = translate_memory(node.get_used_mem(), node)
+        if isinstance(total_mem, str):
+            mem_status = "<a class=\"core gray\" href='#' title=\"NA\"></a>Error: NA\n"
         else:
-            # HCF
-            write_to_log('create_node_html', 22, str(ratio))
+            ratio = int((used_mem/total_mem)*100.0)
+            if ratio <= 35:
+                mem_status = "<a class=\"core blue\" href='#' title=\"Low\"></a>Low\n"
+            elif ratio >35 and ratio <= 69:
+                mem_status = "<a class=\"core green\" href='#' title=\"Moderate\"></a>Moderate\n"
+            elif ratio >69 and ratio <=89:
+                mem_status = "<a class=\"core yellow\" href='#' title=\"High\"></a>High\n"
+            elif ratio >89 and ratio <=100:
+                mem_status = "<a class=\"core red\" href='#' title=\"Danger\"></a>Very High\n"
+            else:
+                # HCF
+                write_to_log('create_node_html', 22, str(ratio))
         
         mem_info = '<table style="width:25%">\n' + '<tr>\n' + '<th>Memory Usage</th>\n' + '<th>{0}</th>\n'.format(mem_status) \
         + '<th>{0}%</th>\n'.format(str(ratio)) + '<tr>\n' + '<td>Total Memory</td>\n' + '<td>Used Memory</td>\n' + '<td>Free Memory</td>\n' + '</tr>\n' + '<tr>\n' + \
@@ -757,26 +793,49 @@ def create_node_html(node_list):
     return
 #^--------------------------------------------------------- create_node_html(node_list)
 
-def tar_node_files(node_list, Queue):
+def tar_node_files(node_list, host):
     """Tar-ing the html files of the nodes we created. This is a reason here
-    why this script should be running in its own directory."""
+    why this script should be running in its own directory. This creates a tar gz
+    archive of all of the nodes within this current HG only."""
     
-    if Queue == 'Long':
+    """if Queue == 'Long':
         save_name = '/afs/crc.nd.edu/user/c/ckankel/www/sub-long.tar.gz'
     else:
-        save_name = '/afs/crc.nd.edu/user/c/ckankel/www/sub-debug.tar.gz'
+        save_name = '/afs/crc.nd.edu/user/c/ckankel/www/sub-debug.tar.gz'"""
+        
+    save_name = '/afs/crc.nd.edu/user/c/ckankel/temp/{0}.tar.gz'.format(host)
         
     tar = tarfile.open(save_name, 'w:gz')
     for node in node_list:
-        tar.add(node.get_name())
+        realName = node.get_name().replace('long@', '')
+        realName = node.get_name().replace('debug@', '') # just in case its the debug HG
+        realName = realName.replace('.crc.nd.edu','') + '.html' # the files are all saved as nodeName.html i.e. d6copt130.html
+        tar.add(realName)
     tar.close()
     return
 #^--------------------------------------------------------- tar_node_files()
+
+def tar_hostGroups():
+    """Tar-ing all of the hostgroup tar files which contain the nodes and the nodes' html files
+    which will be displayed on the web server. The curl queue files bash script will grab these.
+    Saves the result of this to the global NODEFILE"""
+    
+    tar = tarfile.open(NODEFILE, 'w:gz')
+    for host in HOSTGROUPLIST:
+        hostName = host + '.tar.gz'
+        tar.add(hostName)
+    tar.close()
+    return
+#^--------------------------------------------------------- tar_hostGroups()
 
 def write_node_html(name, header, table, jobs, n_map):
     """Method to create the actual file for a node to be displayed on the web-server.
     Each file will simply be named the same name as the node which caused it."""
     
+    name = name.replace('long@', '')
+    name = name.replace('debug@', '')
+    name = name.replace('.crc.nd.edu', '')
+    name = name + '.html'
     file = open(name, 'w')
     file.write(header)
     file.write(table)
@@ -786,13 +845,11 @@ def write_node_html(name, header, table, jobs, n_map):
     return
 #^--------------------------------------------------------- write_node_html(name, header, table)
 
-def write_index_html(header, legend, table, queue_name, link_to_queue, filter_link):
+def write_index_html(header, legend, table, hostGroup, link_to_queue, filter_link):
     """Method to write to a file the html code generated for the Debug/Long Queues."""
-    if queue_name == 'Long':    
-        file = open(LONG_SAVE_FILE, 'w')
-    else:
-        file = open(DEBUG_SAVE_FILE, 'w')
-        
+    
+    hostName = hostGroup.replace('@','')
+    file = open(hostName, 'w')    
     file.write(link_to_queue)
     file.write(filter_link)
     file.write(header)
@@ -803,18 +860,49 @@ def write_index_html(header, legend, table, queue_name, link_to_queue, filter_li
 #^--------------------------------------------------------- write_html(node_list, queue_name)
 
 def write_setup_files(node_list, queue_name):
-    """Method to write the name of the nodes to a file to be read by the setup script
-    to initially create the directories on the webserver so you don't have to by hand."""
-    if queue_name == 'Long':
-        file = open(LONG_SETUP_FILE, 'w')
-    else:
-        file = open(DEBUG_SETUP_FILE, 'w')
-        
+    """Method to write the **name** of the nodes to a file to be read by the setup script
+    to initially create the directories on the webserver so you don't have to by hand.
+    This makes a .txt file named after the HG these nodes came from. It will need to be tarred together with
+    the rest of the files created!"""
+
+    #The files need to be named what the HG is, so the bash script can make the proper dir's etc
+    file = open(queue_name.replace('@','') + '.txt', 'w')
     for node in node_list:
-        file.write(node.get_name())
+        nodeName = node.get_name()
+        # Getting rid of prefixes that are present by default
+        nodeName = nodeName.replace('long@', '')
+        nodeName = nodeName.replace('debug@', '')
+        nodeName = nodeName.replace('.crc.nd.edu', '')
+        # Adding the prefix of the Hg the node belongs to
+        file.write(nodeName)
         file.write('\n')
+    file.close()
+    HOSTGROUPLIST.append(queue_name)
     return
 #^--------------------------------------------------------- write_setup_files(node_list)
+
+def tar_setup_files():
+    """Function to tar the setup files together into one file. This will create queue_mapd-setup.txt"""
+    saveName = '/afs/crc.nd.edu/user/c/ckankel/www/{0}'.format(NODEFILE)
+    tar = tarfile.open(saveName, 'w:gz')
+    for host in HOSTGROUPLIST:
+        tar.add(host.replace('@','') + '.txt')
+    tar.close()
+    return    
+#^--------------------------------------------------------- tar_setup_files()
+
+def create_HG_list():
+    """Function to create queue_mapd-setup.txt from the HOSTGROUPLIST to be read by the setup script
+    which will create all necesarry directoires for all of the host-groups"""
+    save_name = '/afs/crc.nd.edu/user/c/ckankel/www/{0}'.format(SETUPFILE)
+    
+    file = open(save_name, 'w')
+    for group in HOSTGROUPLIST:
+        file.write(group.replace('@',''))
+        file.write('\n')
+    file.close()
+    return
+#^--------------------------------------------------------- create_HG_list()    
 
 def show_usage():
     """Method to display how to use this script on stdout"""

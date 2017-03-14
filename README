@@ -1,122 +1,33 @@
-      _____ _____   _____    ____                        __  __            __   ___  
-     / ____|  __ \ / ____|  / __ \                      |  \/  |          /_ | / _ \ 
-    | |    | |__) | |      | |  | |_   _  ___ _   _  ___| \  / | __ _ _ __ | || | | |
-    | |    |  _  /| |      | |  | | | | |/ _ \ | | |/ _ \ |\/| |/ _` | '_ \| || | | |
-    | |____| | \ \| |____  | |__| | |_| |  __/ |_| |  __/ |  | | (_| | |_) | || |_| |
-     \_____|_|  \_\\_____|  \___\_\\__,_|\___|\__,_|\___|_|  |_|\__,_| .__/|_(_)___/ 
-                                                                   | |             
-                                                                   |_|             
+            ____                        __  __            __   ___  
+           / __ \                      |  \/  |          /_ | / _ \ 
+          | |  | |_   _  ___ _   _  ___| \  / | __ _ _ __ | || | | |
+          | |  | | | | |/ _ \ | | |/ _ \ |\/| |/ _` | '_ \| || | | |
+          | |__| | |_| |  __/ |_| |  __/ |  | | (_| | |_) | || |_| |
+           \___\_\\__,_|\___|\__,_|\___|_|  |_|\__,_| .__/|_(_)___/ 
+                                                    | |             
+                                                    |_|             
+                ____                 __                                 __ 
+               / __ \___ _   _____  / /___  ____  ____ ___  ___  ____  / /_
+              / / / / _ \ | / / _ \/ / __ \/ __ \/ __ `__ \/ _ \/ __ \/ __/
+             / /_/ /  __/ |/ /  __/ / /_/ / /_/ / / / / / /  __/ / / / /_  
+            /_____/\___/|___/\___/_/\____/ .___/_/ /_/ /_/\___/_/ /_/\__/  
+                                        /_/                                
 --------------------------------------------------------------------------------------------
 
-* The CRC Queue map was started in early August, 2016 by intern Cody Kankel
+* The Queue map was started in early August, 2016
+
+* Development branch was created in March, 2017
 
 * It is inspired by Dr. Thain's Condor Matrix map. http://condor.cse.nd.edu/condor_matrix.cgi
 
-* How it works:
-    This small program is a collection of little pieces. The heart of the program is a
-    python 3 script which runs as a daemon on crcfe01.crc.nd.edu. This script collects
-    all of the needed info and creates 4 files: index-long.html, index-debug.html,
-    sub-debug.tar.gz, and sub-long.tar.gz. Those files are then collected by the
-    grab_queue_files.sh script. The bash script gathers the files, un-tars etc, and
-    moves them to the necesarry location for the web server. Its best to place that
-    bash script (grab_queue_files.sh) into crontab to run as a cronjob every 2 minutes
-    or so. This all assumes you already have a working installation of a web server.
-    It has been tested with apache2 and PHP 7.0. A working equivalent of those is 
-    required for this to work correctly.
+* This is currently a work in progress, and was started as a test-bed and is just now moving into github.
 
-* What it will create:
-    The daemon will spit out a few files as said in How it Works, and those files are
-    partial html pages which will be pieced together with php. Eventually, a series of
-    pages will be created on your webserver. Once everything is up and running, if you
-    access your webserver through a browser you will be dumped at whatever your index
-    is. I am planning on creating one for the Queue-Map itself. For now, there will be
-    the classic listing of all available links within the server. There will be a page 
-    for the Debug Queue, a memory filter for the Debug Queue, Pening Jobs, the General
-    Access hostgroup, a memory filter for the General Access hostgroup, and a page 
-    for every node which is in the previous hostgroups/queues. For detailed information
-    and screen shots see : https://github.com/CodyKank/Queue-Map/wiki
+* This branch will not work or function in its present state, and is merely here to hold ideas and be 
+  a central place to contain ideas for the development of QueueMap.
 
-* NOTE: the python daemon on the front end is python 3.4.0 FYI.
+* There are plans to implement a system which will create a page for each hostgroup defined by
+  UGE in an HPC environment. Each hostgroup will then have its own set of nodes associated with it, with
+  the typical memory pages and core usage pages associated with each node.
 
-* Installation:
-            Configuration is key for a smooth setup. There is a script located within
-            the Queue_map directory which will for the most part set everything up for
-            you. 
-                First you should view queue_mapd.py in a text editor and specify the paths
-                for the indicated files, which are global variables so you'll see them 
-                after the class definitions. Then place queue_mapd.py on the front end you 
-                plan on using. Once its theres, you should run it with ./queue_mapd.py --setup.
-                This will create setup files the setup script is looking for which contain
-                the nodes the queue's currently have in plain text. The setup script uses
-                those files to create the dir's for each of the nodes.
-                
-                As of beta-3, there are now two ways you could have this run. Either: 
-                (1) Hard-code your password into a script which gathers necesarry files
-                from the front-end by using sshpass and scp. The setup script for this 
-                method also uses sshpass and scp. Or (2) Have the daemon write the necesarry
-                files to a location which is accessible from the web by way of curl; i.e. 
-                /foo/bar/www/index-long.html etc. The setup script for this method also 
-                relies on curl and the use of some form of web access.
-
-                Method (1) :
-                ------------------------------------------------------------------------
-                Next you should view the setup.sh script in your favorite editor (vim)
-                and enter in your information where it is specified. If you can think of
-                a better way to do it and you understand how its working, go ahead and go
-                your own way. Enter both your CRC and local info. To be safe, make sure
-                this script is only read-able by yourself.
-
-                Once the setup script.sh script is configured, you should configure the 
-                grab_queue_files.sh script the same way you configured the setup script.
-                
-                Once its configured, run the setup script. This will create all dir's to
-                be used later on.
-                
-                Method (2):
-                ------------------------------------------------------------------------
-                View the curl_setup.sh script in your favorite text editor and enter in
-                any information which is required such as paths of files. If you do not
-                want to code in your server password, you can change the sudoers file to
-                allow whatever user your cronning this job as to run all of the commands
-                without needed a sudo password.
-
-                Now that the curl_setup.sh is configured, you should do the same with the
-                curl_queue_files.sh file. This is the script which will indefinetely grab
-                the html files for use in your webpages.
-                
-                Both Methods:
-                -----------------------------------------------------------------------
-                If everything appears to be working, you should next make the non-setup
-                file you configured ealier into a  a cron job. Do this by typing: 'crontab -e'
-                and going to the last line of the file under all of the comments. add the line
-                '*/2 * * * * PATH-TO-DIR/Queue_map/(preferred)_queue_files.sh)'
-                This will run the grabbing script every two minutes, which will automatically
-                keep your info up to date. 
-                
-                Besides Apache, PHP, if you chose Method(1) you must have 'ssh-pass' installed 
-                on your webserver in order for this to work correctly. Debian/Ubuntu users can:
-                'sudo apt-get install ssh-pass'. RPM users, I haven't tried it yet.
-
-* This has been tested on the latest versions of Firefox, Vivaldi, and Opera. Its unknown to me
-  how this will perform on other browsers. I'd love to hear from someone who has tried
-  it on something else (safari, chrome, IE[gross], Edge, etc).
-
-
-* Known Bugs:
-            Not Quite a bug, but look out for the grab_files script after system change,
-            it currently looks for d6copt so that will change eventually.
-            Then break, of course.
-
-* To-do:
-            Possibly add an index page to lead to the Debug/Long pages??
-            Make the Pending Jobs table look nicer.
-
-* Issues:   Problems with script: seek Cody Kankel - ckankel@nd.edu
-            Problems with setting up: seek Cody Kankel - ckankel@nd.edu
-            Problems with apache/php: seek Google
-            Problems with a Queue or specific node: seek crc support -
-            crcsupport@listserv.nd.edu
-
-* To See a few screenshots, check out the wikipage on Github: https://github.com/CodyKank/Queue-Map/wiki
-
-Version: 1.0
+* There are also plans for a 'search' page, which an HTML search with predefined hostgroups to easily
+  find the hostgroup a user etc. is searching for. 
